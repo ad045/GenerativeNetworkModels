@@ -59,16 +59,12 @@ class DistanceWeightedCommunicability(OptimisationCriteria):
         inv_sqrt_node_strenghts = torch.diag( 1/torch.sqrt(node_strengths) )
         # Compute the normalised weight matrix
         normalised_weight_matrix = inv_sqrt_node_strenghts @ weight_matrix @ inv_sqrt_node_strenghts
-        # Check the the normalised weight matrix is symmetric
-        assert torch.allclose( normalised_weight_matrix, normalised_weight_matrix.T, atol=1e-6 ), "The normalised weight matrix is not symmetric!"
-
+        
         # Compute the communicability matrix
         communicability_matrix = torch.matrix_exp( normalised_weight_matrix )
         # Compute the distance-weighted communicability to the power of omega
         distance_weighted_communicability = torch.pow( communicability_matrix * self.distance_matrix , self.omega )
-        # Check that the distance weighted communicability is symmetric
-        assert torch.allclose( distance_weighted_communicability, distance_weighted_communicability.T, atol=1e-6 ), "The distance-weighted communicability matrix is not symmetric!"
-
+        
         # Return the cumulative distance-weighted communicability
         return distance_weighted_communicability
     

@@ -9,7 +9,6 @@ from optimisation_criteria import DistanceWeightedCommunicability
 import torch
 import torch.optim as optim
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class GenerativeNetworkModel():
     @jaxtyped(typechecker=typechecked)
@@ -30,6 +29,7 @@ class GenerativeNetworkModel():
                  optimisation_normalisation: Optional[bool] = None,
                  weight_lower_bound: Optional[float] = None,
                  weight_upper_bound: Optional[float] = None,
+                 maximise: Optional[bool] = False
                  ):
         """
         Initilisation method for the generative network model.
@@ -51,6 +51,7 @@ class GenerativeNetworkModel():
             - optimisation_normalisation (bool, optional): Whether to normalise the function before applying gradients. Defaults to None.
             - weight_lower_bound (float, optional): The smallest value a weight is allowed to reach. Defaults to None.
             - weight_upper_bound (float, optional): The largest value a weight is allowed to reach. Defaults to None.
+            - maximise (bool, optional): Whether to maximise the optimisation criterion. Defaults to False.
         """
         self.seed_adjacency_matrix = seed_adjacency_matrix
         self.distance_matrix = distance_matrix
@@ -92,7 +93,7 @@ class GenerativeNetworkModel():
         # The small constant added to unnormalised probabilities to prevent division by zero.
         self.prob_offset = prob_offset 
 
-        # Initialise the distance cost matrix for the binary GMN.
+        # Initialise the distance cost matrix for the binary GNM.
         if self.distance_relationship_type == 'powerlaw':
             self.distance_factor = distance_matrix.pow(self.eta)
         elif self.distance_relationship_type == 'exponential':
@@ -121,7 +122,7 @@ class GenerativeNetworkModel():
                 
                 self.seed_weight_matrix = seed_weight_matrix
             
-            self.weight_matrix = self.seed_weight_matrix.clone().requires_grad_(True).to(device)
+            self.weight_matrix = self.seed_weight_matrix.clone().requires_grad_(True)
             
             # Set the function to be optimised by the weights
             if optimisation_criterion is None:
@@ -159,7 +160,7 @@ class GenerativeNetworkModel():
                 self.weight_upper_bound = float('inf')
 
             # Initialise the optimiser for the weights.
-            self.optimiser = optim.SGD([self.weight_matrix], lr=self.alpha)
+            self.optimiser = optim.SGD([self.weight_matrix], lr=self.alpha, maximize=maximise)
 
 
     @jaxtyped(typechecker=typechecked)
@@ -229,12 +230,12 @@ class GenerativeNetworkModel():
         loss.backward()
         # Update the weights
         self.optimiser.step()
+        # Ensure the weight matrix is symmetric
+        self.weight_matrix.data = 0.5*(self.weight_matrix.data + self.weight_matrix.data.T)
         # Clip the weights to the specified bounds
         self.weight_matrix.data = torch.clamp(self.weight_matrix.data, self.weight_lower_bound, self.weight_upper_bound)
         # Zero out all weights where the adjacency matrix is zero
         self.weight_matrix.data = self.weight_matrix.data * self.adjacency_matrix
-        # Ensure the weight matrix is symmetric
-        self.weight_matrix.data = 0.5*(self.weight_matrix.data + self.weight_matrix.data.T)
 
         # Return the updated weight matrix
         return self.weight_matrix.detach().clone().cpu()
