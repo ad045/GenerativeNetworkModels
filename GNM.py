@@ -18,6 +18,7 @@ class GenerativeNetworkModel():
                  distance_matrix: Float[torch.Tensor, "num_nodes num_nodes"],
                  eta: float,
                  gamma: float,
+                 lambdah: float,
                  distance_relationship_type: str,
                  matching_relationship_type: str,
                  prob_offset: float = 1e-6,
@@ -40,6 +41,7 @@ class GenerativeNetworkModel():
             - distance_matrix (Pytorch tensor of shape (num_nodes, num_nodes)): The distances between each pair of nodes in the graph.
             - eta (float): Parameter controlling the influence of distance on wiring probability.
             - gamma (float): Parameter controlling the influence of matching index on wiring probability.
+            - lambdah (float): Parameter controlling the influence of heterochronicity on wiring probability.
             - distance_relationship_type (str): The relationship between distance and wiring probability. Must be one of 'powerlaw' or 'exponential'. 
             - matching_relationship_type (str): The relationship between the matching index and wiring probability. Must be one of 'powerlaw' or 'exponential'.
             - prob_offset (float): Small constant added to unnormalised probabilities to prevent division by zero. Defaults to 1e-6.
@@ -86,6 +88,8 @@ class GenerativeNetworkModel():
         self.eta = eta 
         # The parameter controlling the influence of the matching index.
         self.gamma = gamma 
+        # The parameter controlling the influence of heterochronicity.
+        self.lambdah = lambdah 
         # The relationship type for distance.
         self.distance_relationship_type = distance_relationship_type 
         # The relationship type for the matching index.
@@ -182,11 +186,13 @@ class GenerativeNetworkModel():
         matching_index_matrix = matching_index(self.adjacency_matrix)
         if self.matching_relationship_type == 'powerlaw':
             matching_factor = matching_index_matrix.pow(self.gamma)
+            heterochronous_factor = heterochronous_matrix.pow(self.lambdah)
         elif self.matching_relationship_type == 'exponential':
             matching_factor = torch.exp(self.gamma * matching_index_matrix)
+            heterochronous_factor = torch.exp(self.lambdah * heterochronous_matrix)
         
         # Calculate the unnormalised wiring probabilities for each edge.
-        unnormalised_wiring_probabilities = heterochronous_matrix * self.distance_factor * matching_factor 
+        unnormalised_wiring_probabilities = heterochronous_factor * self.distance_factor * matching_factor 
         # Add on the prob_offset term to prevent division by zero
         unnormalised_wiring_probabilities += self.prob_offset
         # Set the probability for all existing connections to be zero

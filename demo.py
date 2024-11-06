@@ -40,6 +40,7 @@ distance_matrix.fill_diagonal_(0)
 # Set other parameters
 eta = -3.0
 gamma = 0.5
+lambdah = 1
 distance_relationship_type = "exponential"
 matching_relationship_type = "exponential"
 
@@ -48,9 +49,10 @@ gmn = GenerativeNetworkModel(seed_adjacency_matrix = seed_adjacency_matrix,
                 distance_matrix = distance_matrix,
                 eta = eta,
                 gamma = gamma,
+                lambdah = lambdah,
                 distance_relationship_type = distance_relationship_type,
                 matching_relationship_type = matching_relationship_type,
-                alpha = 0.00001, 
+                alpha = 0.001, 
                 optimisation_criterion_kwargs = {"omega":1},
                 optimisation_normalisation=False
 )

@@ -67,4 +67,23 @@ class DistanceWeightedCommunicability(OptimisationCriteria):
         
         # Return the cumulative distance-weighted communicability
         return distance_weighted_communicability
+class WeightedDistance(OptimisationCriteria):
+    def __init__(self, normalisation:bool, distance_matrix:Float[torch.Tensor, "num_nodes num_nodes"]):
+        super().__init__(normalisation=normalisation)
+        self.distance_matrix = distance_matrix
     
+    def _unnormalised_call(self, weight_matrix:Float[torch.Tensor, "num_nodes num_nodes"]) -> Float[torch.Tensor, "num_nodes num_nodes"]:
+        """        
+        Parameters:
+        - weight_matrix (Pytorch tensor of shape (num_nodes, num_nodes)): The weight matrix of the network.
+        
+        Returns:
+        - weighted_distance (Pytorch tensor of shape (num_nodes, num_nodes))
+        
+        """
+
+        # Compute the distance-weighted communicability to the power of omega
+        weighted_distance = self.distance_matrix
+        
+        # Return the cumulative distance-weighted communicability
+        return weighted_distance
