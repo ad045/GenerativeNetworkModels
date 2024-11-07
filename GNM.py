@@ -13,7 +13,7 @@ import torch.optim as optim
 class GenerativeNetworkModel():
     @jaxtyped(typechecker=typechecked)
     def __init__(self,
-                 # The first set of arguments are for both the binary and weighted GMN. 
+                 # The first set of arguments are for both the binary and weighted GNM. 
                  seed_adjacency_matrix: Float[torch.Tensor, "num_nodes num_nodes"],
                  distance_matrix: Float[torch.Tensor, "num_nodes num_nodes"],
                  eta: float,
@@ -22,7 +22,7 @@ class GenerativeNetworkModel():
                  distance_relationship_type: str,
                  matching_relationship_type: str,
                  prob_offset: float = 1e-6,
-                 # The following arguments are for the weighted GMN. Leave unspecified for binary GMN.
+                 # The following arguments are for the weighted GNM. Leave unspecified for binary GNM.
                  seed_weight_matrix: Optional[Float[torch.Tensor, "num_nodes num_nodes"]] = None,
                  alpha: Optional[float] = None,
                  optimisation_criterion: Optional[str] = None,
@@ -36,7 +36,7 @@ class GenerativeNetworkModel():
         Initilisation method for the generative network model.
 
         Parameters:
-                ------ The following arguments are for both the binary and weighted GMN. ------
+                ------ The following arguments are for both the binary and weighted GNM. ------
             - seed_adjacency_matrix (Pytorch tensor of shape (num_nodes, num_nodes)): The initial adjacency matrix for the graph.
             - distance_matrix (Pytorch tensor of shape (num_nodes, num_nodes)): The distances between each pair of nodes in the graph.
             - eta (float): Parameter controlling the influence of distance on wiring probability.
@@ -45,7 +45,7 @@ class GenerativeNetworkModel():
             - distance_relationship_type (str): The relationship between distance and wiring probability. Must be one of 'powerlaw' or 'exponential'. 
             - matching_relationship_type (str): The relationship between the matching index and wiring probability. Must be one of 'powerlaw' or 'exponential'.
             - prob_offset (float): Small constant added to unnormalised probabilities to prevent division by zero. Defaults to 1e-6.
-                ------ The following arguments are for the weighted GMN. Leave unspecified for binary GMN. ------
+                ------ The following arguments are for the weighted GNM. Leave unspecified for binary GNM. ------
             - seed_weight_matrix (Pytorch tensor of shape (num_nodes, num_nodes), optional): The initial weight matrix for the graph. Must be symmetric, non-negative, and only non-zero on those elements that the adjacency matrix is non-zero. Defaults to None.
             - alpha (float, optional): The learning rate to apply to the weights for optimisation. Defaults to None.
             - optimisation_criterion (str, optional): Which function to perform optimisation on in order to normalise the weights. Defaults to None.
@@ -79,7 +79,7 @@ class GenerativeNetworkModel():
         if matching_relationship_type not in ['powerlaw', 'exponential']:
             raise NotImplementedError(f"Matching relationship type '{matching_relationship_type}' is not supported for the binary GNM.")
 
-        # Initialise the remainder of the arguments for the binary GMN.
+        # Initialise the remainder of the arguments for the binary GNM.
         # This will be updated as the model runs, while the seed is kept static.
         self.adjacency_matrix = self.seed_adjacency_matrix.clone() 
         # The number of nodes in the graph.
@@ -170,7 +170,7 @@ class GenerativeNetworkModel():
     @jaxtyped(typechecker=typechecked)
     def binary_update(self, heterochronous_matrix: Optional[Float[torch.Tensor, "{self.num_nodes} {self.num_nodes}"]] = None) -> Tuple[Tuple[int, int], Float[torch.Tensor, "num_nodes num_nodes"]]:
         """
-        Performs one update step of the adjacency matrix for the binary GMN.
+        Performs one update step of the adjacency matrix for the binary GNM.
 
         Parameters:
             - heterochronous_matrix (Pytorch tensor of shape (num_nodes, num_nodes), optional): The heterochronous development probability matrix. Defaults to None.
@@ -221,7 +221,7 @@ class GenerativeNetworkModel():
     @jaxtyped(typechecker=typechecked)
     def weighted_update(self) -> Float[torch.Tensor, "{self.num_nodes} {self.num_nodes}"]:
         """
-        Performs one update step of the weight matrix for the weighted GMN.
+        Performs one update step of the weight matrix for the weighted GNM.
 
         Returns:
             - weight_matrix (Pytorch tensor of shape (num_nodes, num_nodes)): (A copy of) the updated weight matrix.
