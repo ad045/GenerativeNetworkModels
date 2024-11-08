@@ -5,3 +5,6 @@ __pycache__/
 
 # The code archive
 archive/
+
+# wandb
+wandb/

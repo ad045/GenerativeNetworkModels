@@ -4,7 +4,7 @@ from typing import Optional, Tuple, Union, List
 from typeguard import typechecked
 
 from matching_index import matching_index
-from optimisation_criteria import DistanceWeightedCommunicability
+from optimisation_criteria import DistanceWeightedCommunicability, WeightedDistance
 
 import torch
 import torch.optim as optim
@@ -30,7 +30,7 @@ class GenerativeNetworkModel():
                  optimisation_normalisation: Optional[bool] = None,
                  weight_lower_bound: Optional[float] = None,
                  weight_upper_bound: Optional[float] = None,
-                 maximise: Optional[bool] = False
+                 maximise_criterion: Optional[bool] = False
                  ):
         """
         Initilisation method for the generative network model.
@@ -53,7 +53,7 @@ class GenerativeNetworkModel():
             - optimisation_normalisation (bool, optional): Whether to normalise the function before applying gradients. Defaults to None.
             - weight_lower_bound (float, optional): The smallest value a weight is allowed to reach. Defaults to None.
             - weight_upper_bound (float, optional): The largest value a weight is allowed to reach. Defaults to None.
-            - maximise (bool, optional): Whether to maximise the optimisation criterion. Defaults to False.
+            - maximise_criterion (bool, optional): Whether to maximise the optimisation criterion. Defaults to False.
         """
         self.seed_adjacency_matrix = seed_adjacency_matrix
         self.distance_matrix = distance_matrix
@@ -142,8 +142,14 @@ class GenerativeNetworkModel():
 
             # Set the optimisation criterion for the weights.
             if self.optimisation_criterion_name == 'distance_weighted_communicability':
+                assert "omega" in optimisation_criterion_kwargs, "The 'omega' parameter must be specified for the 'distance_weighted_communicability' optimisation criterion."
                 self.optimisation_criterion = DistanceWeightedCommunicability(normalisation = self.optimisation_normalisation, distance_matrix = self.distance_matrix, **optimisation_criterion_kwargs)
-            
+            elif self.optimisation_criterion_name == "weighted_distance":
+                self.optimisation_criterion = WeightedDistance(normalisation = self.optimisation_normalisation, distance_matrix = self.distance_matrix, **optimisation_criterion_kwargs)
+            else:
+                raise NotImplementedError("The specified optimisation criterion is not yet supported.")
+
+
             # Set the lower and upper bounds for the weights.
             if weight_lower_bound is not None:
                 if weight_lower_bound < 0.0:
@@ -164,7 +170,7 @@ class GenerativeNetworkModel():
                 self.weight_upper_bound = float('inf')
 
             # Initialise the optimiser for the weights.
-            self.optimiser = optim.SGD([self.weight_matrix], lr=self.alpha, maximize=maximise)
+            self.optimiser = optim.SGD([self.weight_matrix], lr=self.alpha, maximize=maximise_criterion)
 
 
     @jaxtyped(typechecker=typechecked)
@@ -226,8 +232,8 @@ class GenerativeNetworkModel():
         Returns:
             - weight_matrix (Pytorch tensor of shape (num_nodes, num_nodes)): (A copy of) the updated weight matrix.
         """
-        assert torch.allclose( self.weight_matrix.data, self.weight_matrix.data.T )
 
+        
         # Perform the optimisation step on the weights.
         # Compute the loss
         loss = self.optimisation_criterion(self.weight_matrix)
