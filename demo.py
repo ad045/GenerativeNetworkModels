@@ -113,10 +113,13 @@ def generate_heterochronous_matrix(coord, setting="posterior", sigma=1.0, num_no
 
     return heterochronous_matrices_tensor
 
+# connection length - phase where long range connections are encouraged
+
+
 # Set other parameters
-eta = -3.0
+eta = -3.0 #problem with eta = 9
 gamma = 0.5
-lambdah = 1
+lambdah = 0
 distance_relationship_type = "exponential"
 matching_relationship_type = "exponential"
 
@@ -166,7 +169,7 @@ for t in range(n_steps):
     display._colorbar = None # Remove colorbar for all but the last plot
 
 #plt.tight_layout()
-plt.sh
+plt.show()
 
 # decide seed type in a separate script
 # none
@@ -183,9 +186,9 @@ gnm = GenerativeNetworkModel(seed_adjacency_matrix = seed_adjacency_matrix,
                 lambdah = lambdah,
                 distance_relationship_type = distance_relationship_type,
                 matching_relationship_type = matching_relationship_type,
-                alpha = 0.001, 
+                alpha = 0, 
                 optimisation_criterion_kwargs = {"omega":1},
-                optimisation_normalisation=False
+                optimisation_normalisation=True
 )
 
 
@@ -207,3 +210,4 @@ plt.show()
 
 W = gnm.weight_matrix.detach().numpy()
 W.max()
+
