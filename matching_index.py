@@ -3,6 +3,7 @@ import torch
 from typing import Tuple, List
 from jaxtyping import Float, Int, jaxtyped
 from typeguard import typechecked
+import numpy as np
 
 @jaxtyped(typechecker=typechecked)
 def matching_index(
@@ -47,17 +48,82 @@ def matching_index(
             node_strengths = modified_adjacency_matrix.sum(dim=0)
             # Compute the divisor term
             denominator = ( node_strengths.unsqueeze(0) + node_strengths.unsqueeze(1) - modified_adjacency_matrix - modified_adjacency_matrix.T )/2
+            # Set the denominator to be 1 whenever it is zero to avoid division by zero
+            denominator[denominator == 0] = 1
+
+            # Compute the matching index
+            matching_indices = (modified_adjacency_matrix.T @ modified_adjacency_matrix) / denominator
+            
         elif divisor == "union":
             # In this case, compute the divisor as the size of the union of the neighbourhoods. 
             denominator =  torch.max( modified_adjacency_matrix.unsqueeze(1), modified_adjacency_matrix.unsqueeze(2) ).sum(dim=0) - modified_adjacency_matrix - modified_adjacency_matrix.T
-        else: 
-            raise ValueError("Divisor must be set to either 'mean' or 'union'!")
+            # Set the denominator to be 1 whenever it is zero to avoid division by zero
+            denominator[denominator == 0] = 1
 
-        # Set the denominator to be 1 whenever it is zero to avoid division by zero
-        denominator[denominator == 0] = 1
+            # Compute the matching index
+            matching_indices = (modified_adjacency_matrix.T @ modified_adjacency_matrix) / denominator
+            
+        elif divisor == "matlab":
+            # Implement the MATLAB matching index computation
+            for i in range(num_nodes):
+                c1 = modified_adjacency_matrix[i, :].clone()
+                c1[i] = 0  # Exclude self-connection
+                for j in range(num_nodes):
+                    if i == j:
+                        matching_indices[i, j] = 0
+                        continue
+                    c2 = modified_adjacency_matrix[j, :].clone()
+                    c2[j] = 0  # Exclude self-connection
 
-        # Compute the matching index
-        matching_indices = (modified_adjacency_matrix.T @ modified_adjacency_matrix) / denominator
+                    # Exclude direct connections between i and j
+                    c1_excl = c1.clone()
+                    c2_excl = c2.clone()
+                    c1_excl[j] = 0
+                    c2_excl[i] = 0
+
+                    # Compute 'use' mask where either c1_excl or c2_excl has a connection
+                    use = (c1_excl > 0) | (c2_excl > 0)
+
+                    # Sum of degrees over 'use' mask
+                    ncon = (c1_excl[use] > 0).sum() + (c2_excl[use] > 0).sum()
+
+                    # Number of common neighbors over 'use' mask
+                    n_common = ((c1_excl[use] > 0) & (c2_excl[use] > 0)).sum()
+
+                    if ncon == 0:
+                        matching_indices[i, j] = 0.00001
+                    else:
+                        matching_indices[i, j] = 2 * n_common / ncon + 0.00001
+        elif divisor == "stuart":
+            # Implement the 'stuart' matching index computation
+            # Convert to NumPy arrays for convenience
+            A = modified_adjacency_matrix.cpu().numpy()
+            n = num_nodes
+
+            # Compute the number of common neighbors
+            nei = (A @ A) * (~np.eye(n, dtype=bool))
+
+            # Compute degrees
+            deg = A.sum(axis=1)
+
+            # Compute sum of degrees for each pair
+            degsum = (deg.reshape(-1, 1) + deg.reshape(1, -1)) * (~np.eye(n, dtype=bool))
+
+            # Compute numerator and denominator
+            numerator = nei * 2
+            denominator = ((degsum <= 2) & (nei != 1)).astype(float) + (degsum - (A * 2))
+
+            # Avoid division by zero
+            denominator[denominator == 0] = 0.00001
+
+            # Compute the matching index
+            m = numerator / denominator
+
+            # Convert back to torch.Tensor
+            matching_indices = torch.from_numpy(m).float()
+        else:
+            raise ValueError("Divisor must be set to either 'mean', 'union', or 'matlab'!")
+
         
     elif mode == 'in':
         # In the case that we want the inward matching indices, we simply call the function with the matrix transposed. 

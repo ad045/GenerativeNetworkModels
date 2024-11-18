@@ -48,8 +48,8 @@ num_seed_edges = np.sum(consensus_matrix > 0) / 2
 seed_adjacency_matrix = torch.zeros(num_nodes, num_nodes)
 
 # Define parameter ranges for eta, gamma, lambdah, and alpha
-eta_values = -np.arange(0,4,0.25)
-gamma_values = np.arange(0,0.5,0.1)
+eta_values = -np.arange(2,5,0.2)
+gamma_values = np.arange(0,0.5,0.05)
 lambdah_values = [0.0]
 alpha_values = [0.0] #np.arange(0,0.2,0.05)
 
