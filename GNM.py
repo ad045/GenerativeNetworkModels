@@ -190,12 +190,17 @@ class GenerativeNetworkModel():
             heterochronous_matrix = torch.ones((self.num_nodes, self.num_nodes), dtype=self.seed_adjacency_matrix.dtype)
         
         matching_index_matrix = matching_index(self.adjacency_matrix)
+        # Add on the prob_offset term to prevent zero to the power of negative number
+        matching_index_matrix[matching_index_matrix == 0] += self.prob_offset
+        
         if self.matching_relationship_type == 'powerlaw':
             matching_factor = matching_index_matrix.pow(self.gamma)
-            heterochronous_factor = heterochronous_matrix.pow(self.lambdah)
+            heterochronous_factor = torch.exp(self.lambdah * heterochronous_matrix)
+            #heterochronous_factor = heterochronous_matrix.pow(self.lambdah)
         elif self.matching_relationship_type == 'exponential':
             matching_factor = torch.exp(self.gamma * matching_index_matrix)
             heterochronous_factor = torch.exp(self.lambdah * heterochronous_matrix)
+        
         
         # Calculate the unnormalised wiring probabilities for each edge.
         unnormalised_wiring_probabilities = heterochronous_factor * self.distance_factor * matching_factor 
