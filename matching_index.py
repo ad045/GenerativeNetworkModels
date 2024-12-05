@@ -7,8 +7,8 @@ from typeguard import typechecked
 @jaxtyped(typechecker=typechecked)
 def matching_index(
     adjacency_matrix:Float[torch.Tensor, "num_nodes num_nodes"],
-    mode:str = "all",
-    divisor:str = "mean"
+    mode: str = "all",
+    divisor: str = "mean"
 ) -> Float[torch.Tensor, "num_nodes num_nodes"]:
     """
     Computes the normalised matching index for a given adjacency matrix.
@@ -65,7 +65,7 @@ def matching_index(
             matching_indices.fill_diagonal_(0)
             
         else: 
-            raise ValueError("Divisor must be set to either 'mean' or 'union'!")
+            raise ValueError("Divisor must be set to either 'mean' or 'unio n'!")
 
     elif mode == 'out':
         # In the case that we want the inward matching indices, we simply call the function with the matrix transposed. 
@@ -88,7 +88,7 @@ def matching_index(
             denominator[denominator == 0] = 1  # Avoid division by zero
             
             # Compute the matching index
-            matching_indices = (combined_adjacency_matrix @ combined_adjacency_matrix) / denominator
+            matching_indices = (combined_adjacency_matrix.T @ combined_adjacency_matrix) / denominator
             matching_indices.fill_diagonal_(0)
             
         elif divisor == "union":
