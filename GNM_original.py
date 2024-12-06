@@ -9,10 +9,8 @@ from optimisation_criteria import DistanceWeightedCommunicability, WeightedDista
 import torch
 import torch.optim as optim
 
-from rules import GenerativeRule
 
-
-class GenerativeNetworkModel():
+class OriginalGenerativeNetworkModel():
     @jaxtyped(typechecker=typechecked)
     def __init__(self,
                  # The first set of arguments are for both the binary and weighted GNM. 
@@ -32,8 +30,7 @@ class GenerativeNetworkModel():
                  optimisation_normalisation: Optional[bool] = None,
                  weight_lower_bound: Optional[float] = None,
                  weight_upper_bound: Optional[float] = None,
-                 maximise_criterion: Optional[bool] = False,
-                 gen_fcn: Optional[GenerativeRule] = GenerativeRule('matching_index')
+                 maximise_criterion: Optional[bool] = False
                  ):
         """
         Initilisation method for the generative network model.
@@ -60,8 +57,6 @@ class GenerativeNetworkModel():
         """
         self.seed_adjacency_matrix = seed_adjacency_matrix
         self.distance_matrix = distance_matrix
-
-        self.value_fcn = gen_fcn
         
         # Perform various checks the seed adjacency matrix and the distance matrix.
         # Check that the seed_adjacency_matrix is binary.
@@ -194,7 +189,7 @@ class GenerativeNetworkModel():
         if heterochronous_matrix is None:
             heterochronous_matrix = torch.ones((self.num_nodes, self.num_nodes), dtype=self.seed_adjacency_matrix.dtype)
         
-        matching_index_matrix = self.value_fcn(self.adjacency_matrix) #matching_index(self.adjacency_matrix)
+        matching_index_matrix = matching_index(self.adjacency_matrix)
         # Add on the prob_offset term to prevent zero to the power of negative number
         matching_index_matrix[matching_index_matrix == 0] += self.prob_offset
         
@@ -243,6 +238,7 @@ class GenerativeNetworkModel():
             - weight_matrix (Pytorch tensor of shape (num_nodes, num_nodes)): (A copy of) the updated weight matrix.
         """
 
+        
         # Perform the optimisation step on the weights.
         # Compute the loss
         loss = self.optimisation_criterion(self.weight_matrix)

@@ -24,7 +24,7 @@ class GenerativeRule():
         }
 
         assert self.mode in ['all', 'in', 'out'], f"Mode '{self.mode}' is not supported. Must be one of 'all', 'in', or 'out'."
-        assert self.divisor in self.divisor_fcs.keys(), f"Divisor '{self.divisor}' is not supported. Must be one of 'mean' or 'union'."
+        assert self.divisor in self.devisors.keys(), f"Divisor '{self.divisor}' is not supported. Must be one of 'mean' or 'union'."
         assert self.rule in self.rules.keys(), f"Rule '{self.rule}' is not supported. Must be one of {self.rules.keys()}."
 
 
@@ -67,7 +67,7 @@ class GenerativeRule():
     def __call__(self, adjacency_matrix:torch.Tensor):
         # clone and create diagnonal
         tmp_mat = adjacency_matrix.clone()
-        tmp_mat = tmp_mat.fill_diagonal(0)
+        tmp_mat = tmp_mat.fill_diagonal_(0)
 
         # apply mode (e.g. all, in, out) to account for directional connectivity
         mode_fcn = self.modes[self.mode]
