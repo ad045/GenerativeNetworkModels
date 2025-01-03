@@ -9,6 +9,8 @@ from optimisation_criteria import DistanceWeightedCommunicability, WeightedDista
 import torch
 import torch.optim as optim
 
+from tqdm import tqdm
+
 
 class OriginalGenerativeNetworkModel():
     @jaxtyped(typechecker=typechecked)
@@ -295,7 +297,7 @@ class OriginalGenerativeNetworkModel():
         if heterochronous_matrix is None:
             heterochronous_matrix = torch.ones((self.num_nodes, self.num_nodes, num_iterations*binary_updates_per_iteration), dtype=self.seed_adjacency_matrix.dtype)
 
-        for ii in range(num_iterations):
+        for ii in tqdm(range(num_iterations)):
             
             for jj in range(binary_updates_per_iteration):
                 added_edges, adjacency_matrix = self.binary_update(heterochronous_matrix[:,:,ii*binary_updates_per_iteration + jj])

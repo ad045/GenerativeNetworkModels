@@ -10,6 +10,7 @@ import torch
 import torch.optim as optim
 
 from rules import GenerativeRule
+from tqdm import tqdm
 
 
 class GenerativeNetworkModel():
@@ -33,7 +34,7 @@ class GenerativeNetworkModel():
                  weight_lower_bound: Optional[float] = None,
                  weight_upper_bound: Optional[float] = None,
                  maximise_criterion: Optional[bool] = False,
-                 gen_fcn: Optional[GenerativeRule] = GenerativeRule('matching_index')
+                 gen_fcn: Optional[GenerativeRule] = GenerativeRule('clu_avg')
                  ):
         """
         Initilisation method for the generative network model.
@@ -194,7 +195,9 @@ class GenerativeNetworkModel():
         if heterochronous_matrix is None:
             heterochronous_matrix = torch.ones((self.num_nodes, self.num_nodes), dtype=self.seed_adjacency_matrix.dtype)
         
+        # implement generative rule
         matching_index_matrix = self.value_fcn(self.adjacency_matrix) #matching_index(self.adjacency_matrix)
+    
         # Add on the prob_offset term to prevent zero to the power of negative number
         matching_index_matrix[matching_index_matrix == 0] += self.prob_offset
         
@@ -205,7 +208,6 @@ class GenerativeNetworkModel():
         elif self.matching_relationship_type == 'exponential':
             matching_factor = torch.exp(self.gamma * matching_index_matrix)
             heterochronous_factor = torch.exp(self.lambdah * heterochronous_matrix)
-        
         
         # Calculate the unnormalised wiring probabilities for each edge.
         unnormalised_wiring_probabilities = heterochronous_factor * self.distance_factor * matching_factor 
@@ -299,8 +301,7 @@ class GenerativeNetworkModel():
         if heterochronous_matrix is None:
             heterochronous_matrix = torch.ones((self.num_nodes, self.num_nodes, num_iterations*binary_updates_per_iteration), dtype=self.seed_adjacency_matrix.dtype)
 
-        for ii in range(num_iterations):
-            
+        for ii in tqdm(range(num_iterations)):
             for jj in range(binary_updates_per_iteration):
                 added_edges, adjacency_matrix = self.binary_update(heterochronous_matrix[:,:,ii*binary_updates_per_iteration + jj])
                 adjacency_snapshots[:,:,ii] = adjacency_matrix

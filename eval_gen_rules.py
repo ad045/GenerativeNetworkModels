@@ -1,3 +1,10 @@
+"""
+Author: Will Mills
+Purpose: check to see if there is difference between original GNM code
+with modular rules
+"""
+
+
 import importlib
 import torch
 import matplotlib.pyplot as plt
@@ -7,7 +14,8 @@ import GNM
 from GNM import GenerativeNetworkModel
 import rules
 from GNM_original import OriginalGenerativeNetworkModel
-
+import bct
+from scipy.stats import ks_2samp
 
 def run_model(model_type:str):    
     num_nodes = 100
@@ -56,15 +64,32 @@ def run_model(model_type:str):
                         optimisation_normalisation=False
         )
 
-    added_edges_list, adjacency_snapshot, weight_snapshots = gmn.train_loop(num_iterations = 100, binary_updates_per_iteration=0, weighted_updates_per_iteration=1)
+    added_edges_list, adjacency_snapshot, weight_snapshots = gmn.train_loop(num_iterations = 1000, binary_updates_per_iteration=1, weighted_updates_per_iteration=1)
+    
+    matrix = gmn.adjacency_matrix.numpy()
+    return matrix
 
-    plt.figure(figsize=(5, 5))
-    plt.imshow(gmn.adjacency_matrix.numpy())
-    plt.title("Final adjacency matrix")
+def eval_gnm():
+    
+    new_mat = run_model('matching_index')
+    og_mat = run_model('og')
+
+    og_density = bct.density_und(og_mat)
+    new_density = bct.density_und(new_mat)
+
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+
+    axes[0].imshow(og_mat)
+    axes[0].set_title(f"Original adjacency matrix\nDensity {og_density}")
+
+    axes[1].imshow(new_mat)
+    axes[1].set_title(f"Matching index adjacency matrix\nDensity {new_density}")
+
+    centrality_og = bct.betweenness_bin(og_mat)
+    centrality_new = bct.betweenness_bin(new_mat)
+    ks_centrality, p = ks_2samp(centrality_og, centrality_new)
+
+    plt.xlabel(f'Centrality ks: {ks_centrality:.3} | p-value: {p:.3}')
     plt.show()
 
-    W = gmn.weight_matrix.detach().numpy()
-    print(W.max())
-
-run_model('og')
-run_model('matching_index')
+eval_gnm()
