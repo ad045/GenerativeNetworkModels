@@ -10,7 +10,6 @@ import torch
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm.notebook import tqdm
-import GNM
 from GNM import GenerativeNetworkModel
 import rules
 from GNM_original import OriginalGenerativeNetworkModel
@@ -70,7 +69,6 @@ def run_model(model_type:str):
     return matrix
 
 def eval_gnm():
-    
     new_mat = run_model('matching_index')
     og_mat = run_model('og')
 

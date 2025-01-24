@@ -9,7 +9,7 @@ from optimisation_criteria import DistanceWeightedCommunicability, WeightedDista
 import torch
 import torch.optim as optim
 
-from rules import GenerativeRule
+from rules import *
 from tqdm import tqdm
 
 
@@ -34,7 +34,7 @@ class GenerativeNetworkModel():
                  weight_lower_bound: Optional[float] = None,
                  weight_upper_bound: Optional[float] = None,
                  maximise_criterion: Optional[bool] = False,
-                 gen_fcn: Optional[GenerativeRule] = GenerativeRule('clu_avg')
+                 gen_fcn: Optional[GenerativeRule] = MatchingIndex()
                  ):
         """
         Initilisation method for the generative network model.
