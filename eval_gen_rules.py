@@ -13,8 +13,9 @@ from tqdm.notebook import tqdm
 from GNM import GenerativeNetworkModel
 import rules
 from GNM_original import OriginalGenerativeNetworkModel
-import bct
 from scipy.stats import ks_2samp
+
+import bct
 
 def run_model(model_type:str):    
     num_nodes = 100

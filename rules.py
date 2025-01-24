@@ -27,7 +27,6 @@ class GenerativeRule(ABC):
     def __call__(self, adjacency_matrix:torch.Tensor):
         # get correct rule and exponential/powerlaw functions
         mode_fcn = self.modes[self.mode]
-        rule_fcn = self.rules[self.rule]
 
         # clone and remove self-connections
         tmp_mat = adjacency_matrix.clone()
@@ -51,20 +50,18 @@ class MatchingIndex(GenerativeRule):
     def __init__(self, mode='in', **kwargs):
         super().__init__(mode)
 
-        self.devisors = {
+        self.divisors = {
             'mean':self._mean,
             'union':self._union
         }
-
-        assert 'divisor' in kwargs.keys(), 'Divisor needed for matching rule'
-        assert kwargs['divisor'] in self.divisors.keys(), f'Divisor must be one of {self.devisors.keys()}, {kwargs['divisor']} not valid'
+        self.divisor = kwargs.get('divisor')
+        assert self.divisor in self.divisors.keys(), f"Divisor must be one of {self.divisors.keys()}, {self.divisor} not valid"
         
-        self.divisor = kwargs['divisor']
+        self.divisor_fcn = self.divisors[self.divisor]
 
     def pass_rule(self, adjacency_matrix):
         # divisor needed for normalizaion
-        devisor_fcn = self.devisors[self.divisor]
-        devisor_val = devisor_fcn(adjacency_matrix)
+        devisor_val = self.divisor_fcn(adjacency_matrix)
 
         # apply normalization, get matching index, remove self-connections
         matching_indices = (adjacency_matrix.T @ adjacency_matrix) / devisor_val

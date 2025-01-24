@@ -1,5 +1,6 @@
 import jaxtyping
 from jaxtyping import Float, jaxtyped
+from jaxtyping import _typeguard
 from typing import Optional, Tuple, Union, List
 from typeguard import typechecked
 
@@ -34,7 +35,7 @@ class GenerativeNetworkModel():
                  weight_lower_bound: Optional[float] = None,
                  weight_upper_bound: Optional[float] = None,
                  maximise_criterion: Optional[bool] = False,
-                 gen_fcn: Optional[GenerativeRule] = MatchingIndex()
+                 gen_fcn: Optional[GenerativeRule] = MatchingIndex(divisor = 'mean')
                  ):
         """
         Initilisation method for the generative network model.
