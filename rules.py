@@ -2,6 +2,7 @@ from jaxtyping import Float, Int, jaxtyped
 from typeguard import typechecked
 import torch
 from abc import ABC, abstractmethod
+import numpy as np
 
 # abstract base class for all other rules
 class GenerativeRule(ABC):
@@ -41,6 +42,10 @@ class GenerativeRule(ABC):
 
         return temporary_matrix
     
+    @jaxtyped(typechecker=typechecked)
+    def _binarize_weighted_matrix(self, adjacency_matrix:Float[torch.Tensor, "num_nodes num_nodes"]):
+        return torch.where(adjacency_matrix > 0, torch.tensor(1, dtype=adjacency_matrix.dtype), adjacency_matrix)
+    
     @abstractmethod
     @jaxtyped(typechecker=typechecked)
     def pass_rule(self, adjacency_matrix:Float[torch.Tensor, "num_nodes num_nodes"]):
@@ -68,6 +73,7 @@ class MatchingIndex(GenerativeRule):
 
         # apply normalization, get matching index, remove self-connections
         matching_indices = (adjacency_matrix.T @ adjacency_matrix) / devisor_val
+        matching_indices = self._binarize_weighted_matrix(matching_indices)
         matching_indices.fill_diagonal_(0)
         return matching_indices
     
