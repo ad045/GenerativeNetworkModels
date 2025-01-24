@@ -6,7 +6,6 @@ from abc import ABC, abstractmethod
 # abstract base class for all other rules
 class GenerativeRule(ABC):
     def __init__(self, mode='in'):
-        self.mode = mode
 
         self.modes = {
             'in': lambda matrix: matrix, # no preprocessing needed
@@ -15,6 +14,7 @@ class GenerativeRule(ABC):
         }
 
         assert self.mode in ['all', 'in', 'out'], f"Mode '{self.mode}' is not supported. Must be one of 'all', 'in', or 'out'."
+        self.mode_fcn = self.modes[mode]
 
     # equation components
     @jaxtyped(typechecker=typechecked)
@@ -28,14 +28,13 @@ class GenerativeRule(ABC):
     @jaxtyped(typechecker=typechecked)
     def __call__(self, adjacency_matrix:Float[torch.Tensor, "num_nodes num_nodes"]):
         # get correct rule and exponential/powerlaw functions
-        mode_fcn = self.modes[self.mode]
 
         # clone and remove self-connections
         tmp_mat = adjacency_matrix.clone()
         tmp_mat.fill_diagonal_(0)
 
         # apply mode (e.g. all, in, out) to account for directional connectivity
-        tmp_mat = mode_fcn(tmp_mat)
+        tmp_mat = self.mode_fcn(tmp_mat)
 
         # apply rule e.g. matching, clustering etc
         tmp_mat = self.pass_rule(tmp_mat)
