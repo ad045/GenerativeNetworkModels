@@ -4,7 +4,6 @@ Purpose: check to see if there is difference between original GNM code
 with modular rules
 """
 
-
 import importlib
 import torch
 import matplotlib.pyplot as plt
