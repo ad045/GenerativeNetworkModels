@@ -13,16 +13,16 @@ class GenerativeRule(ABC):
             'all': self._all # combine transposition and original
         }
 
-        assert self.mode in ['all', 'in', 'out'], f"Mode '{self.mode}' is not supported. Must be one of 'all', 'in', or 'out'."
+        assert mode in ['all', 'in', 'out'], f"Mode '{self.mode}' is not supported. Must be one of 'all', 'in', or 'out'."
         self.mode_fcn = self.modes[mode]
 
     # equation components
     @jaxtyped(typechecker=typechecked)
-    def _all(self, matrix:Float[torch.Tensor, "num_nodes num_nodes"]):
+    def _all(self, adjacency_matrix:Float[torch.Tensor, "num_nodes num_nodes"]):
         # combine incoming and outgoing connections
-        matrix = matrix + matrix.T
-        matrix = matrix.fill_diagonal_(0)
-        return matrix
+        adjacency_matrix = adjacency_matrix + adjacency_matrix.T
+        adjacency_matrix = adjacency_matrix.fill_diagonal_(0)
+        return adjacency_matrix
 
     # pipeline for applying rule to adjacency matrix
     @jaxtyped(typechecker=typechecked)
@@ -30,16 +30,16 @@ class GenerativeRule(ABC):
         # get correct rule and exponential/powerlaw functions
 
         # clone and remove self-connections
-        tmp_mat = adjacency_matrix.clone()
-        tmp_mat.fill_diagonal_(0)
+        temporary_matrix = adjacency_matrix.clone()
+        temporary_matrix.fill_diagonal_(0)
 
         # apply mode (e.g. all, in, out) to account for directional connectivity
-        tmp_mat = self.mode_fcn(tmp_mat)
+        temporary_matrix = self.mode_fcn(temporary_matrix)
 
         # apply rule e.g. matching, clustering etc
-        tmp_mat = self.pass_rule(tmp_mat)
+        temporary_matrix = self.pass_rule(temporary_matrix)
 
-        return tmp_mat
+        return temporary_matrix
     
     @abstractmethod
     @jaxtyped(typechecker=typechecked)
