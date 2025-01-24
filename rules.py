@@ -17,14 +17,16 @@ class GenerativeRule(ABC):
         assert self.mode in ['all', 'in', 'out'], f"Mode '{self.mode}' is not supported. Must be one of 'all', 'in', or 'out'."
 
     # equation components
-    def _all(self, matrix:torch.Tensor):
+    @jaxtyped(typechecker=typechecked)
+    def _all(self, matrix:Float[torch.Tensor, "num_nodes num_nodes"]):
         # combine incoming and outgoing connections
         matrix = matrix + matrix.T
         matrix = matrix.fill_diagonal_(0)
         return matrix
 
     # pipeline for applying rule to adjacency matrix
-    def __call__(self, adjacency_matrix:torch.Tensor):
+    @jaxtyped(typechecker=typechecked)
+    def __call__(self, adjacency_matrix:Float[torch.Tensor, "num_nodes num_nodes"]):
         # get correct rule and exponential/powerlaw functions
         mode_fcn = self.modes[self.mode]
 
@@ -41,7 +43,8 @@ class GenerativeRule(ABC):
         return tmp_mat
     
     @abstractmethod
-    def pass_rule(self, adjacency_matrix):
+    @jaxtyped(typechecker=typechecked)
+    def pass_rule(self, adjacency_matrix:Float[torch.Tensor, "num_nodes num_nodes"]):
         pass
 
 
@@ -59,7 +62,8 @@ class MatchingIndex(GenerativeRule):
         
         self.divisor_fcn = self.divisors[self.divisor]
 
-    def pass_rule(self, adjacency_matrix):
+    @jaxtyped(typechecker=typechecked)
+    def pass_rule(self, adjacency_matrix:Float[torch.Tensor, "num_nodes num_nodes"]):
         # divisor needed for normalizaion
         devisor_val = self.divisor_fcn(adjacency_matrix)
 
@@ -68,14 +72,16 @@ class MatchingIndex(GenerativeRule):
         matching_indices.fill_diagonal_(0)
         return matching_indices
     
-    def _mean(self, matrix:torch.Tensor):
+    @jaxtyped(typechecker=typechecked)
+    def _mean(self, matrix:Float[torch.Tensor, "num_nodes num_nodes"]):
         node_strengths = matrix.sum(dim=0)
         denominator = (node_strengths.unsqueeze(0) + node_strengths.unsqueeze(1) - matrix - matrix.T) / 2
         denominator[denominator == 0] = 1
         return denominator
 
-    def _union(self, matrix):
-        denominator = torch.max( matrix.unsqueeze(1), matrix.unsqueeze(2)).sum(dim=0) - matrix - matrix.T
+    @jaxtyped(typechecker=typechecked)
+    def _union(self, adjacency_matrix:Float[torch.Tensor, "num_nodes num_nodes"]):
+        denominator = torch.max( adjacency_matrix.unsqueeze(1), adjacency_matrix.unsqueeze(2)).sum(dim=0) - adjacency_matrix - adjacency_matrix.T
         # Set the denominator to be 1 whenever it is zero to avoid division by zero
         denominator[denominator == 0] = 1
         return denominator
@@ -85,7 +91,8 @@ class ClusteringAvg(GenerativeRule):
     def __init__(self, mode='in'):
         super().__init__(mode)
 
-    def pass_rule(self, adjacency_matrix):
+    @jaxtyped(typechecker=typechecked)
+    def pass_rule(self, adjacency_matrix:Float[torch.Tensor, "num_nodes num_nodes"]):
         # TODO: Change clustering coef based on directionary and weighted/binary
         # TODO: implement clustering coef myself 
         
