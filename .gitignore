@@ -1,3 +1,14 @@
+# Python cache files 
+__pycache__/
+*.py[cod]
+*$py.class
+
+# The code archive
+archive/
+
+# wandb
+wandb/
+
 ./workbook.ipynb
 ./eval_gen_rules.py
 ./GNM_original.py
