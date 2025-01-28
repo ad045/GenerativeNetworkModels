@@ -65,7 +65,7 @@ def matching_index(
             matching_indices.fill_diagonal_(0)
             
         else: 
-            raise ValueError("Divisor must be set to either 'mean' or 'unio n'!")
+            raise ValueError("Divisor must be set to either 'mean' or 'union'!")
 
     elif mode == 'out':
         # In the case that we want the inward matching indices, we simply call the function with the matrix transposed. 

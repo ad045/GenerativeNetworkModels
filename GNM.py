@@ -10,7 +10,7 @@ from optimisation_criteria import DistanceWeightedCommunicability, WeightedDista
 import torch
 import torch.optim as optim
 
-from rules import *
+from generative_rules import *
 from tqdm import tqdm
 
 

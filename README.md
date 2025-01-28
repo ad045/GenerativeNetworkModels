@@ -21,8 +21,8 @@ The aim of this project was to make GNMs more accessable to the wider research c
 
 ### Authors and Acknowledgements
 Edward Young (ey245@cam.ac.uk)
-
 Francesco Poli (francesco.poli@mrc-cbu.cam.ac.uk)
+William Mills (william.mills@mrc-cbu.cam.ac.uk)
 
 ### License
 

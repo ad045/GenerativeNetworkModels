@@ -19,7 +19,6 @@ import plotly
 
 # Load the provided .mat file to explore its contents
 mat_file_path = r'../Data/Consensus/consensus_wgm_h.mat'
-# on the cluster, data is in \imaging\Astle\fp02\wGNM\prepare\consensus_wgm_h.mat
 
 # Load the .mat file
 mat_contents = scipy.io.loadmat(mat_file_path)
