@@ -5,9 +5,6 @@ Created on Thu Nov 28 14:24:25 2024
 @author: fp02
 """
 
-import sys
-sys.path.append('./GenerativeNetworkModels')
-
 from joblib import Parallel, delayed
 from tqdm import tqdm
 

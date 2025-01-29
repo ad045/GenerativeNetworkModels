@@ -5,9 +5,6 @@ Created on Fri Nov  1 18:32:05 2024
 @author: fp02
 """
 
-import sys
-sys.path.append('./GenerativeNetworkModels')
-
 import importlib
 import torch
 import matplotlib.pyplot as plt

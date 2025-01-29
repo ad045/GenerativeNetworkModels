@@ -1,7 +1,3 @@
-import sys
-sys.path.append('./GenerativeNetworkModels')
-
-
 import jaxtyping
 from jaxtyping import Float, jaxtyped
 from jaxtyping import _typeguard

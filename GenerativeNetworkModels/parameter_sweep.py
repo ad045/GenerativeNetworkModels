@@ -1,7 +1,3 @@
-import sys
-sys.path.append('./GenerativeNetworkModels')
-
-
 import wandb
 import torch
 import networkx as nx
