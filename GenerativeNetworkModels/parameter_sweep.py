@@ -1,9 +1,13 @@
+import sys
+sys.path.append('./GenerativeNetworkModels')
+
+
 import wandb
 import torch
 import networkx as nx
 import numpy as np
 from scipy.stats import ks_2samp
-from GenerativeNetworkModels.GNM import GenerativeNetworkModel
+from GNM import GenerativeNetworkModel
 import scipy.io
 
 wandb.login()

@@ -12,9 +12,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 # from tqdm.notebook import tqdm
 import sample_brain_coordinates
-import GNM
-importlib.reload(GNM)
-from GNM import GenerativeNetworkModel
+import GenerativeNetworkModels.GNM
+importlib.reload(GenerativeNetworkModels.GNM)
+from .GNM import GenerativeNetworkModel
 import scipy.io
 # from nilearn import plotting
 # import plotly

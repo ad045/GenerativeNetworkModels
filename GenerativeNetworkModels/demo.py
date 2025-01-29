@@ -5,20 +5,24 @@ Created on Fri Nov  1 18:32:05 2024
 @author: fp02
 """
 
+import sys
+sys.path.append('./GenerativeNetworkModels')
+
 import importlib
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm.notebook import tqdm
-import GenerativeNetworkModels.GNM
-importlib.reload(GenerativeNetworkModels.GNM)
-from .GNM import GenerativeNetworkModel
+import GNM
+import generative_rules
+importlib.reload(GNM)
+from GNM import GenerativeNetworkModel
 import scipy.io
 from nilearn import plotting
 import plotly
 
-import GenerativeNetworkModels.generative_rules
-importlib.reload(GenerativeNetworkModels.generative_rules)
+import generative_rules as generative_rules
+importlib.reload(generative_rules)
 
 # Load the provided .mat file to explore its contents
 mat_file_path = r'../Data/Consensus/consensus_wgm_h.mat'
