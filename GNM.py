@@ -1,5 +1,6 @@
 import jaxtyping
 from jaxtyping import Float, jaxtyped
+from jaxtyping import _typeguard
 from typing import Optional, Tuple, Union, List
 from typeguard import typechecked
 
@@ -8,6 +9,9 @@ from optimisation_criteria import DistanceWeightedCommunicability, WeightedDista
 
 import torch
 import torch.optim as optim
+
+from generative_rules import *
+from tqdm import tqdm
 
 
 class GenerativeNetworkModel():
@@ -30,7 +34,8 @@ class GenerativeNetworkModel():
                  optimisation_normalisation: Optional[bool] = None,
                  weight_lower_bound: Optional[float] = None,
                  weight_upper_bound: Optional[float] = None,
-                 maximise_criterion: Optional[bool] = False
+                 maximise_criterion: Optional[bool] = False,
+                 generative_rule: Optional[GenerativeRule] = MatchingIndex(divisor = 'mean')
                  ):
         """
         Initilisation method for the generative network model.
@@ -57,6 +62,8 @@ class GenerativeNetworkModel():
         """
         self.seed_adjacency_matrix = seed_adjacency_matrix
         self.distance_matrix = distance_matrix
+
+        self.generative_rule = generative_rule
         
         # Perform various checks the seed adjacency matrix and the distance matrix.
         # Check that the seed_adjacency_matrix is binary.
@@ -189,10 +196,16 @@ class GenerativeNetworkModel():
         if heterochronous_matrix is None:
             heterochronous_matrix = torch.ones((self.num_nodes, self.num_nodes), dtype=self.seed_adjacency_matrix.dtype)
         
-        matching_index_matrix = matching_index(self.adjacency_matrix)
+        # implement generative rule
+        matching_index_matrix = self.generative_rule(self.adjacency_matrix) #matching_index(self.adjacency_matrix)
+    
+        # Add on the prob_offset term to prevent zero to the power of negative number
+        matching_index_matrix[matching_index_matrix == 0] += self.prob_offset
+        
         if self.matching_relationship_type == 'powerlaw':
             matching_factor = matching_index_matrix.pow(self.gamma)
-            heterochronous_factor = heterochronous_matrix.pow(self.lambdah)
+            heterochronous_factor = torch.exp(self.lambdah * heterochronous_matrix)
+            #heterochronous_factor = heterochronous_matrix.pow(self.lambdah)
         elif self.matching_relationship_type == 'exponential':
             matching_factor = torch.exp(self.gamma * matching_index_matrix)
             heterochronous_factor = torch.exp(self.lambdah * heterochronous_matrix)
@@ -233,7 +246,6 @@ class GenerativeNetworkModel():
             - weight_matrix (Pytorch tensor of shape (num_nodes, num_nodes)): (A copy of) the updated weight matrix.
         """
 
-        
         # Perform the optimisation step on the weights.
         # Compute the loss
         loss = self.optimisation_criterion(self.weight_matrix)
@@ -290,8 +302,7 @@ class GenerativeNetworkModel():
         if heterochronous_matrix is None:
             heterochronous_matrix = torch.ones((self.num_nodes, self.num_nodes, num_iterations*binary_updates_per_iteration), dtype=self.seed_adjacency_matrix.dtype)
 
-        for ii in range(num_iterations):
-            
+        for ii in tqdm(range(num_iterations)):
             for jj in range(binary_updates_per_iteration):
                 added_edges, adjacency_matrix = self.binary_update(heterochronous_matrix[:,:,ii*binary_updates_per_iteration + jj])
                 adjacency_snapshots[:,:,ii] = adjacency_matrix
