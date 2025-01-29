@@ -35,7 +35,7 @@ class GenerativeNetworkModel():
                  weight_lower_bound: Optional[float] = None,
                  weight_upper_bound: Optional[float] = None,
                  maximise_criterion: Optional[bool] = False,
-                 generative_rule: Optional[GenerativeRule] = MatchingIndex(divisor = 'mean')
+                 generative_rule: Optional[any] = MatchingIndex(divisor = 'mean')
                  ):
         """
         Initilisation method for the generative network model.
