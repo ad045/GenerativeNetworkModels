@@ -13,10 +13,10 @@ import torch
 import matplotlib.pyplot as plt
 import numpy as np
 # from tqdm.notebook import tqdm
-import GNM
-importlib.reload(GNM)
-from GNM import GenerativeNetworkModel
-import sample_brain_coordinates
+import GenerativeNetworkModels.GNM
+importlib.reload(GenerativeNetworkModels.GNM)
+from .GNM import GenerativeNetworkModel
+import GenerativeNetworkModels.sample_brain_coordinates
 
 import scipy.io
 # from nilearn import plotting
@@ -30,7 +30,7 @@ from netneurotools.networks import networks_utils
 #from nilearn import plotting
 from itertools import product
 
-from generate_heterochronous_matrix import generate_heterochronous_matrix
+from .generate_heterochronous_matrix import generate_heterochronous_matrix
 
 # must be improved to deal with symmetry on x axis
 

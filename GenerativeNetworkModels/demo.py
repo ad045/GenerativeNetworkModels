@@ -10,12 +10,15 @@ import torch
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm.notebook import tqdm
-import GNM
-importlib.reload(GNM)
-from GNM import GenerativeNetworkModel
+import GenerativeNetworkModels.GNM
+importlib.reload(GenerativeNetworkModels.GNM)
+from .GNM import GenerativeNetworkModel
 import scipy.io
 from nilearn import plotting
 import plotly
+
+import GenerativeNetworkModels.generative_rules
+importlib.reload(GenerativeNetworkModels.generative_rules)
 
 # Load the provided .mat file to explore its contents
 mat_file_path = r'../Data/Consensus/consensus_wgm_h.mat'
@@ -59,6 +62,7 @@ matching_relationship_type = "exponential"
 ## long-range: True/False
 ## cumulative: True/False
 
+generative_rule = generative_rules.MatchingIndex(mode='in', divisor='mean')
 gnm = GenerativeNetworkModel(seed_adjacency_matrix = seed_adjacency_matrix,
                 distance_matrix = distance_matrix,
                 eta = eta,
@@ -68,7 +72,8 @@ gnm = GenerativeNetworkModel(seed_adjacency_matrix = seed_adjacency_matrix,
                 matching_relationship_type = matching_relationship_type,
                 alpha = 0, 
                 optimisation_criterion_kwargs = {"omega":1},
-                optimisation_normalisation=True
+                optimisation_normalisation=True,
+                generative_rule=generative_rule
 )
 
 

@@ -3,7 +3,7 @@ import torch
 import networkx as nx
 import numpy as np
 from scipy.stats import ks_2samp
-from GNM import GenerativeNetworkModel
+from GenerativeNetworkModels.GNM import GenerativeNetworkModel
 import scipy.io
 
 wandb.login()

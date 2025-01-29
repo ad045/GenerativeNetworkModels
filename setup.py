@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='GenerativeNetworkTools',
+    name='GenerativeNetworkModels',
     version='0.1',    
     description="""
     This package provides computationally efficient tools for implementing Weighted 

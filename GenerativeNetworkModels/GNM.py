@@ -4,13 +4,13 @@ from jaxtyping import _typeguard
 from typing import Optional, Tuple, Union, List
 from typeguard import typechecked
 
-from matching_index import matching_index
-from optimisation_criteria import DistanceWeightedCommunicability, WeightedDistance
+from .matching_index import matching_index
+from .optimisation_criteria import DistanceWeightedCommunicability, WeightedDistance
 
 import torch
 import torch.optim as optim
 
-from generative_rules import *
+from .generative_rules import *
 from tqdm import tqdm
 
 
