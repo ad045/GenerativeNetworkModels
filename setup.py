@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name='GenerativeNetworkTools',
@@ -15,7 +15,7 @@ setup(
     author='Edward Young, Francesco Poli, William Mills',
     author_email='ey245@cam.ac.uk, francesco.poli@mrc-cbu.cam.ac.uk, william.mills@mrc-cbu.cam.ac.uk',
     license='',
-    packages=['GenerativeNetworkModels'],
+    packages=find_packages(),
         install_requires=[
         "jaxtyping==0.2.36",
         "setuptools==75.1.0",
