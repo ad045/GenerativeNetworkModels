@@ -1,0 +1,36 @@
+Metadata-Version: 2.2
+Name: GenerativeNetworkTools
+Version: 0.1
+Summary: This package provides computationally efficient tools for implementing Weighted 
+Home-page: https://github.com/EdwardJamesYoung/GenerativeNetworkModels
+Author: Edward Young, Francesco Poli, William Mills
+Author-email: ey245@cam.ac.uk, francesco.poli@mrc-cbu.cam.ac.uk, william.mills@mrc-cbu.cam.ac.uk
+Classifier: Development Status :: 1 - Planning
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Developers
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Classifier: Topic :: Scientific/Engineering :: Medical Science Apps.
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Framework :: Jupyter
+Requires-Python: >=3.9
+Requires-Dist: jaxtyping==0.2.36
+Requires-Dist: setuptools==75.1.0
+Requires-Dist: six==1.16.0
+Requires-Dist: sympy==1.13.3
+Requires-Dist: tqdm==4.66.5
+Requires-Dist: typeguard==2.13.3
+Requires-Dist: typing-extensions==4.12.2
+Requires-Dist: urllib3==2.3.0
+Requires-Dist: wheel==0.44.0
+Requires-Dist: zipp==3.21.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

@@ -1,0 +1,10 @@
+jaxtyping==0.2.36
+setuptools==75.1.0
+six==1.16.0
+sympy==1.13.3
+tqdm==4.66.5
+typeguard==2.13.3
+typing-extensions==4.12.2
+urllib3==2.3.0
+wheel==0.44.0
+zipp==3.21.0
