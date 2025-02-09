@@ -13,12 +13,12 @@ plugins:
   - mkdocstrings:
       handlers:
         python:
-          paths: [src] 
+          paths: [src]  
           options:
-            docstring_style: google
-            show_source: true
+            show_source: false  
             show_root_heading: true
             heading_level: 2
+            docstring_style: google  
 
 markdown_extensions:
   - pymdownx.arithmatex:
