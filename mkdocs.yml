@@ -1,6 +1,6 @@
 site_name: Generative Network Models Toolbox
 theme:
-  name: material
+  name: material 
   features:
     - navigation.tabs
     - navigation.sections
@@ -10,14 +10,22 @@ theme:
 
 plugins:
   - search
-  - mkdocstrings
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]  
+          options:
+            show_source: false  
+            show_root_heading: true
+            heading_level: 2
+            docstring_style: google  
 
 markdown_extensions:
   - pymdownx.arithmatex:
       generic: true
 
 extra_javascript:
-  - javascripts/mathjax.js
+  - docs/javascripts/mathjax.js
   - https://polyfill.io/v3/polyfill.min.js?features=es6
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 
@@ -27,51 +35,8 @@ nav:
   - User Guide: user-guide.md
   - Examples scripts:
     - Overview: examples/index.md
-  - API Reference:
+  - API Reference: 
     - Overview: api-reference/index.md
     - Generative Network Model: api-reference/generative-network-model.md
     - Generative Rules: api-reference/generative-rules.md
     - Optimisation Criteria: api-reference/optimisation-criteria.md
-
-# site_name: Generative Network Models Toolbox
-# theme:
-#   name: material 
-#   features:
-#     - navigation.tabs
-#     - navigation.sections
-#     - navigation.top
-#     - search.suggest
-#     - search.highlight
-
-# plugins:
-#   - search
-#   - mkdocstrings:
-#       handlers:
-#         python:
-#           paths: [src]  
-#           options:
-#             show_source: false  
-#             show_root_heading: true
-#             heading_level: 2
-#             docstring_style: google  
-
-# markdown_extensions:
-#   - pymdownx.arithmatex:
-#       generic: true
-
-# extra_javascript:
-#   - docs/javascripts/mathjax.js
-#   - https://polyfill.io/v3/polyfill.min.js?features=es6
-#   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
-
-# nav:
-#   - Home: index.md
-#   - Getting Started: getting-started.md
-#   - User Guide: user-guide.md
-#   - Examples scripts:
-#     - Overview: examples/index.md
-#   - API Reference: 
-#     - Overview: api-reference/index.md
-#     - Generative Network Model: api-reference/generative-network-model.md
-#     - Generative Rules: api-reference/generative-rules.md
-#     - Optimisation Criteria: api-reference/optimisation-criteria.md
