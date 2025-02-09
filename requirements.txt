@@ -61,6 +61,8 @@ MarkupSafe @ file:///work/perseverance-python-buildout/croot/markupsafe_17073429
 matplotlib==3.9.2
 matplotlib-inline @ file:///home/conda/feedstock_root/build_artifacts/matplotlib-inline_1713250518406/work
 mistune==3.0.2
+mkdocs==1.5.3
+mkdocs-material==9.5.3
 mkl-service==2.4.0
 mkl_fft @ file:///croot/mkl_fft_1725370245198/work
 mkl_random @ file:///croot/mkl_random_1725370241878/work
