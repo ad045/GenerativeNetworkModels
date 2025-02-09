@@ -14,12 +14,12 @@ The aim of this project was to make GNMs more accessable to the wider research c
     - [Optimisation Criteria](api-reference/optimisation-criteria.md)
 
 ## Authors and Acknowledgements
-- Edward James Young (ey245@cam.ac.uk)
-- William Mills (william.mills@mrc-cbu.cam.ac.uk)
-- Francesco Poli (francesco.poli@mrc-cbu.cam.ac.uk)
+- [Edward James Young](https://github.com/EdwardJamesYoung) (ey245@cam.ac.uk)
+- [William Mills](https://github.com/wbmills) (william.mills@mrc-cbu.cam.ac.uk)
+- [Francesco Poli](https://github.com/FrancescPoli) (francesco.poli@mrc-cbu.cam.ac.uk)
 
 
 ## References 
-  [1] [Rubinov, M., & Sporns, O. (2010). Complex network measures of brain connectivity: Uses and interpretations. NeuroImage, 52(3), 1059–1069.](https://doi.org/10.1016/j.neuroimage.2009.10.003)
+  [1] [Rubinov, M., & Sporns, O. (2010). Complex network measures of brain connectivity: Uses and interpretations. NeuroImage, 52(3), 1059–1069.](https://doi.org/10.1016%2Fj.neuroimage.2009.10.003)
 
   [2] [Akarca, D., Schiavi, S., Achterberg, J., Genc, S., Jones, D. K., & Astle, D. E. (2023). A weighted generative model of the human connectome. Neuroscience.](https://doi.org/10.1101/2023.06.23.546237)
