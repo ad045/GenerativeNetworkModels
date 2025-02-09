@@ -1,0 +1,538 @@
+from jaxtyping import Float, jaxtyped
+from typing import Optional, Tuple, List
+from typeguard import typechecked
+
+from optimisation_criteria import OptimisationCriterion
+
+import torch
+import torch.optim as optim
+
+from generative_rules import *
+from tqdm import tqdm
+
+from dataclasses import dataclass
+
+
+@dataclass
+class BinaryGenerativeParameters:
+    """Parameters controlling the binary generative network model's evolution.
+
+    This dataclass encapsulates the parameters that determine how a binary generative
+    network model grows and forms connections. The parameters control three main aspects
+    of network generation:
+    1. The influence of physical distance, $\eta$
+    2. The influence of topological similarity, $\gamma$
+    3. The influence of developmental factors, $\lambda$
+
+    Each influence can be modeled using either a power law or exponential relationship,
+    as specified by the relationship type parameters. The total wiring probability is
+    proportional to the product of a distance factor $d_{ij}$, a preferential wiring
+    factor $k_{ij}$, and a developmental factor $h_{ij}$:
+    \begin{equation}
+        P_{ij} \propto d_{ij} \times k_{ij} \times h_{ij}
+    \end{equation}
+
+    Attributes:
+        eta (float):
+            Parameter ($\eta$) controlling the influence of Euclidean distances $D_{ij}$
+            on wiring probability. More negative values indicate lower wiring probabilities
+            between nodes that are futher away.
+            - For power law: $d_{ij} = D_{ij}^{\eta}$
+            - For exponential: $d_{ij} = \exp(\eta D_{ij})$
+
+        gamma (float):
+            Parameter ($\gamma$) controlling the influence of the preferential wiring rule $K_{ij}$
+            on wiring probability. Larger values indicate stronger preference creating
+            connections between nodes that have high preferential value.
+            - For power law: $k_{ij} = K_{ij}^{\gamma}$
+            - For exponential: $k_{ij} = \exp(\gamma K_{ij})$
+
+        lambdah (float):
+            Parameter ($\lambda$) controlling the influence of heterochronicity $H_{ij}$ on wiring
+            probability. Larger values indicate stronger temporal dependence in development.
+            - For power law: $h_{ij} = H_{ij}^{\lambda}$
+            - For exponential: $h_{ij} = \exp(\lambda H_{ij})$
+
+        distance_relationship_type (str):
+            The relationship between distance $D_{ij}$ and distance factor $d_{ij}$.
+            Must be one of ['powerlaw', 'exponential'].
+
+        preference_relationship_type (str):
+            The relationship between the generative rule output $K_{ij}$ and preferential wiring factor $k_{ij}$.
+            Must be one of ['powerlaw', 'exponential'].
+
+        prob_offset (float, optional):
+            Small constant added to unnormalized probabilities to prevent division by zero.
+            Defaults to 1e-6.
+
+        generative_rule (GenerativeRule):
+            The generative rule that transforms the adjacency matrix to a matching index matrix.
+            This computes the preferential wiring rule $K_{ij}$ from the adjacency matrix $A_{ij}$.
+
+    Examples:
+        >>> binary_parameters = BinaryGenerativeParameters(
+        ...     eta=1.0,
+        ...     gamma=0.5,
+        ...     lambdah=2.0,
+        ...     distance_relationship_type='powerlaw',
+        ...     preferential_relationship_type='exponential',
+        ...     heterochronicity_relationship_type='powerlaw',
+        ...     generative_rule=MatchingIndex(divisor='mean')
+        ... )
+
+    See Also:
+        - GenerativeRule: A base class for generative rules that transform an adjacency matrix $A_{ij}$ into a preferential wiring matrix $K_{ij}$
+    """
+
+    eta: float
+    gamma: float
+    lambdah: float
+    distance_relationship_type: str
+    preferential_relationship_type: str
+    heterochronicity_relationship_type: str
+    prob_offset: float = 1e-6
+    generative_rule: GenerativeRule
+
+    def __post_init__(self):
+        # Perform checks on the distance and matching index relationship type.
+        if self.distance_relationship_type not in ["powerlaw", "exponential"]:
+            raise NotImplementedError(
+                f"Distance relationship type '{self.distance_relationship_type}' is not supported for the binary generative network model."
+            )
+        if self.preferential_relationship_type not in ["powerlaw", "exponential"]:
+            raise NotImplementedError(
+                f"Matching relationship type '{self.preferential_relationship_type}' is not supported for the binary generative network model."
+            )
+        if self.heterochronicity_relationship_type not in ["powerlaw", "exponential"]:
+            raise NotImplementedError(
+                f"Matching relationship type '{self.heterochronicity_relationship_type}' is not supported for the binary generative network model."
+            )
+
+
+@dataclass
+class WeightedGenerativeParameters:
+    """Parameters controlling the weighted generative network model's evolution.
+
+    This dataclass encapsulates the parameters that determine how weights evolve in a
+    weighted generative network model. While the binary parameters control network
+    topology, these parameters control the optimisation of connection weights through
+    gradient descent. The optimisation process minimises (or maximises) an objective
+    function.
+
+    At each step, the weights are updated according to:
+    \begin{equation}
+    W_{ij} \gets W_{ij} - \alpha \frac{\partial L}{\partial W_{ij}},
+    \end{equation}
+    where L is the optimisation criterion and $\alpha$ is the learning rate.
+    Note that only those weights present in the binary network adjacency matrix $A_{ij}$
+    are updated.
+    Additionally, symmetry is enforced so that we always have $W_{ij} = W_{ji}$.
+
+    Attributes:
+        alpha (float):
+            Learning rate ($\alpha$) for gradient descent optimisation of weights.
+            Controls how much weights change in response to gradients:
+            larger values mean bigger steps but potential instability,
+            smaller values mean more stable but slower optimisation.
+
+        optimisation_criterion (OptimisationCriterion):
+            The objective function $L(W)$ to optimise. This determines what
+            properties the final weight configuration will exhibit.
+            See OptimisationCriterion class for available options like
+            distance-weighted communicability or weighted distance.
+
+        optimisation_normalisation (bool):
+            Whether to normalise the optimisation criterion before computing
+            gradients. Normalisation can help prevent numerical instability
+            by keeping values in a reasonable range.
+
+        weight_lower_bound (float, optional):
+            Minimum allowed value for any weight (W_lower). All weights
+            will be clipped to stay above this value. Must be non-negative.
+            Defaults to 0.0.
+
+        weight_upper_bound (float, optional):
+            Maximum allowed value for any weight (W_upper). All weights
+            will be clipped to stay below this value. Must be greater
+            than weight_lower_bound. Defaults to infinity.
+
+        maximise_criterion (bool, optional):
+            Whether to maximise rather than minimise the optimisation criterion.
+            When True, gradients are flipped to ascend rather than descend.
+            Defaults to False.
+
+    Examples:
+        >>> weighted_parameters = WeightedGenerativeParameters(
+        ...     alpha=0.01,  # Small learning rate for stable optimisation
+        ...     optimisation_criterion=DistanceWeightedCommunicability(
+        ...         normalisation=True,
+        ...         distance_matrix=D,
+        ...         omega=1.0
+        ...     ),
+        ...     optimisation_normalisation=True,
+        ...     weight_lower_bound=0.0,
+        ...     weight_upper_bound=1.0,
+        ...     maximise_criterion=False
+        ... )
+
+    See Also:
+        - OptimisationCriterion: Base class for optimisation objectives
+        - DistanceWeightedCommunicability: optimisation criterion based on network communication
+        - GenerativeNetworkModel.weighted_update: Method that uses these parameters
+    """
+
+    alpha: float
+    optimisation_criterion: OptimisationCriterion
+    optimisation_normalisation: bool
+    weight_lower_bound: float = 0.0
+    weight_upper_bound: float = float("inf")
+    maximise_criterion: bool = False
+
+
+class GenerativeNetworkModel:
+    """A class implementing both binary and weighted Generative Network Models (GNM).
+
+    This class provides a unified framework for growing networks using both binary and weighted
+    generative processes. The model works in two phases:
+
+    1. Binary Growth Phase:
+       The network's topology is determined by iteratively adding edges to an adjacency matrix
+       $A_{ij}$ based on three factors:
+       - Physical distance between nodes
+       - Topological similarity (through a generative rule like matching index)
+       - Developmental timing (heterochronicity)
+       For more details, see (REF BinaryGenerativeParameters and binary_update method).
+
+    2. Weight Optimisation Phase (Optional):
+       If weighted parameters are provided, the model also optimizes edge weights $W_{ij}$
+       through gradient descent on a loss.
+       For more details, see (REF WeightedGenerativeParameters and weighted_update method).
+
+    Attributes:
+        seed_adjacency_matrix (torch.Tensor):
+            Initial binary adjacency matrix (num_nodes, num_nodes).
+        adjacency_matrix (torch.Tensor):
+            Current state of the network's adjacency matrix.
+        distance_matrix (torch.Tensor):
+            Matrix of (Euclidean) distances between nodes.
+        num_nodes (int):
+            Number of nodes in the network.
+        binary_parameters (BinaryGenerativeParameters):
+            Parameters controlling binary network growth.
+        distance_factor (torch.Tensor):
+            Precomputed distance influence on edge formation.
+        seed_weight_matrix (torch.Tensor, optional):
+            Initial weight matrix if using weighted GNM.
+        weight_matrix (torch.Tensor, optional):
+            Current state of the weight matrix.
+        weighted_parameters (WeightedGenerativeParameters, optional):
+            Parameters controlling weight optimisation.
+        optimiser (torch.optim.Optimizer, optional):
+            Optimiser for weight updates.
+
+    See Also:
+        - :class:`BinaryGenerativeParameters`: Parameters controlling binary network growth
+        - :class:`WeightedGenerativeParameters`: Parameters controlling weight optimisation
+    """
+
+    @jaxtyped(typechecker=typechecked)
+    def __init__(
+        self,
+        seed_adjacency_matrix: Float[torch.Tensor, "num_nodes num_nodes"],
+        distance_matrix: Float[torch.Tensor, "num_nodes num_nodes"],
+        binary_parameters: BinaryGenerativeParameters,
+        seed_weight_matrix: Optional[Float[torch.Tensor, "num_nodes num_nodes"]] = None,
+        weighted_parameters: Optional[WeightedGenerativeParameters] = None,
+    ):
+        """Initialise a new Generative Network Model using the specified parameters.
+
+        The initialisation process:
+        1. Validates input matrices (symmetry, binary values, etc.).
+        2. Stores the binary parameters and optionally the weighted parameters.
+        3. Precomputes a distance factor matrix based on distance_relationship_type.
+        4. If weighted parameters are provided, prepares the weight matrix and optimiser.
+
+        Args:
+            seed_adjacency_matrix:
+                Initial network structure. Must be a binary symmetric matrix.
+            distance_matrix:
+                Physical distances between nodes. Must be symmetric and non-negative.
+            binary_parameters:
+                Parameters controlling network growth.
+            seed_weight_matrix:
+                Initial weight matrix for weighted networks. If None but weighted parameters
+                are provided, a matrix matching the adjacency support is used.
+            weighted_parameters:
+                Parameters controlling weight optimisation. If None, only binary growth is performed.
+
+        Raises:
+            ValueError: If input matrices don't meet requirements (binary, symmetric, etc.) or
+                        if weight matrix doesn't match adjacency support.
+        """
+        # -----------------
+        # Validate adjacency
+        if not torch.all((seed_adjacency_matrix == 0) | (seed_adjacency_matrix == 1)):
+            raise ValueError("seed_adjacency_matrix must be binary (only 0s and 1s).")
+        if not torch.allclose(seed_adjacency_matrix, seed_adjacency_matrix.T):
+            raise ValueError("seed_adjacency_matrix must be symmetric.")
+        if torch.any(torch.diag(seed_adjacency_matrix) != 0):
+            print("Removing self-connections from adjacency matrix.")
+            seed_adjacency_matrix = seed_adjacency_matrix.clone()
+            seed_adjacency_matrix.fill_diagonal_(0)
+
+        # -----------------
+        # Validate distance
+        if not torch.allclose(distance_matrix, distance_matrix.T):
+            raise ValueError("distance_matrix must be symmetric.")
+        if torch.any(distance_matrix < 0):
+            raise ValueError("distance_matrix must be non-negative.")
+
+        self.seed_adjacency_matrix = seed_adjacency_matrix
+        self.adjacency_matrix = seed_adjacency_matrix.clone()
+        self.distance_matrix = distance_matrix
+        self.num_nodes = seed_adjacency_matrix.shape[0]
+
+        # -----------------
+        # Store binary parameters
+        self.binary_parameters = binary_parameters
+
+        # Precompute distance factor
+        if self.binary_parameters.distance_relationship_type == "powerlaw":
+            self.distance_factor = distance_matrix.pow(self.binary_parameters.eta)
+        elif self.binary_parameters.distance_relationship_type == "exponential":
+            self.distance_factor = torch.exp(
+                self.binary_parameters.eta * distance_matrix
+            )
+        else:
+            raise ValueError(
+                f"Unsupported distance relationship: {self.binary_parameters.distance_relationship_type}"
+            )
+
+        # -----------------
+        # Weighted parameters
+        self.weighted_parameters = weighted_parameters
+        self.seed_weight_matrix = None
+        self.weight_matrix = None
+        self.optimiser = None
+
+        if self.weighted_parameters is not None:
+            # If user didn't provide seed_weight_matrix, initialise from adjacency.
+            if seed_weight_matrix is None:
+                self.seed_weight_matrix = self.adjacency_matrix.clone()
+            else:
+                # Validate user-provided weight matrix.
+                if not torch.allclose(seed_weight_matrix, seed_weight_matrix.T):
+                    raise ValueError("seed_weight_matrix must be symmetric.")
+                if torch.any(seed_weight_matrix < 0):
+                    raise ValueError("seed_weight_matrix must be non-negative.")
+                if torch.any((self.adjacency_matrix == 0) & (seed_weight_matrix != 0)):
+                    raise ValueError(
+                        "seed_weight_matrix must have support only where adjacency is non-zero."
+                    )
+                self.seed_weight_matrix = seed_weight_matrix
+
+            # Create a copy for the actual weight matrix that will be optimised.
+            self.weight_matrix = self.seed_weight_matrix.clone().requires_grad_(True)
+
+            # Initialise optimiser.
+            self.optimiser = optim.SGD(
+                [self.weight_matrix],
+                lr=self.weighted_parameters.alpha,
+                maximize=self.weighted_parameters.maximise_criterion,
+            )
+
+    @jaxtyped(typechecker=typechecked)
+    def binary_update(
+        self,
+        heterochronous_matrix: Optional[
+            Float[torch.Tensor, "{self.num_nodes} {self.num_nodes}"]
+        ] = None,
+    ) -> Tuple[Tuple[int, int], Float[torch.Tensor, "num_nodes num_nodes"]]:
+        """
+        Performs one update step of the adjacency matrix for the binary GNM.
+
+        Parameters:
+            - heterochronous_matrix (Pytorch tensor of shape (num_nodes, num_nodes), optional): The heterochronous development probability matrix. Defaults to None.
+
+        Returns:
+            - added_edges (Tuple[int, int]): The edge that was added to the adjacency matrix.
+            - adjacency_matrix (Pytorch tensor of shape (num_nodes, num_nodes)): (A copy of) the updated adjacency matrix.
+        """
+
+        if heterochronous_matrix is None:
+            heterochronous_matrix = torch.ones(
+                (self.num_nodes, self.num_nodes), dtype=self.seed_adjacency_matrix.dtype
+            )
+
+        # implement generative rule
+        matching_index_matrix = self.generative_rule(
+            self.adjacency_matrix
+        )  # matching_index(self.adjacency_matrix)
+
+        # Add on the prob_offset term to prevent zero to the power of negative number
+        matching_index_matrix[matching_index_matrix == 0] += self.prob_offset
+
+        if self.matching_relationship_type == "powerlaw":
+            matching_factor = matching_index_matrix.pow(self.gamma)
+            heterochronous_factor = torch.exp(self.lambdah * heterochronous_matrix)
+            # heterochronous_factor = heterochronous_matrix.pow(self.lambdah)
+        elif self.matching_relationship_type == "exponential":
+            matching_factor = torch.exp(self.gamma * matching_index_matrix)
+            heterochronous_factor = torch.exp(self.lambdah * heterochronous_matrix)
+
+        # Calculate the unnormalised wiring probabilities for each edge.
+        unnormalised_wiring_probabilities = (
+            heterochronous_factor * self.distance_factor * matching_factor
+        )
+        # Add on the prob_offset term to prevent division by zero
+        unnormalised_wiring_probabilities += self.prob_offset
+        # Set the probability for all existing connections to be zero
+        unnormalised_wiring_probabilities = unnormalised_wiring_probabilities * (
+            1 - self.adjacency_matrix
+        )
+        # Set the diagonal to zero to prevent self-connections
+        unnormalised_wiring_probabilities.fill_diagonal_(0)
+        # Normalize the wiring probability
+        wiring_probability = (
+            unnormalised_wiring_probabilities / unnormalised_wiring_probabilities.sum()
+        )
+        # Sample an edge to add
+        edge_idx = torch.multinomial(wiring_probability.view(-1), num_samples=1).item()
+        first_node = edge_idx // self.num_nodes
+        second_node = edge_idx % self.num_nodes
+        # Add the edge to the adjacency matrix
+        self.adjacency_matrix[first_node, second_node] = 1
+        self.adjacency_matrix[second_node, first_node] = 1
+        # Record the added edge
+        added_edges = (first_node, second_node)
+        # Add the edge to the weight matrix if it exists
+        if hasattr(self, "weight_matrix"):
+            self.weight_matrix.data[first_node, second_node] = 1
+            self.weight_matrix.data[second_node, first_node] = 1
+
+        # Return the added edge and (a copy of) the updated adjacency matrix
+        return added_edges, self.adjacency_matrix.clone()
+
+    @jaxtyped(typechecker=typechecked)
+    def weighted_update(
+        self,
+    ) -> Float[torch.Tensor, "{self.num_nodes} {self.num_nodes}"]:
+        """
+        Performs one update step of the weight matrix for the weighted GNM.
+
+        Returns:
+            - weight_matrix (Pytorch tensor of shape (num_nodes, num_nodes)): (A copy of) the updated weight matrix.
+        """
+
+        # Perform the optimisation step on the weights.
+        # Compute the loss
+        loss = self.optimisation_criterion(self.weight_matrix)
+        # Compute the gradients
+        self.optimiser.zero_grad()
+        loss.backward()
+        # Update the weights
+        self.optimiser.step()
+        # Ensure the weight matrix is symmetric
+        self.weight_matrix.data = 0.5 * (
+            self.weight_matrix.data + self.weight_matrix.data.T
+        )
+        # Clip the weights to the specified bounds
+        self.weight_matrix.data = torch.clamp(
+            self.weight_matrix.data, self.weight_lower_bound, self.weight_upper_bound
+        )
+        # Zero out all weights where the adjacency matrix is zero
+        self.weight_matrix.data = self.weight_matrix.data * self.adjacency_matrix
+
+        # Return the updated weight matrix
+        return self.weight_matrix.detach().clone().cpu()
+
+    @jaxtyped(typechecker=typechecked)
+    def train_loop(
+        self,
+        num_iterations: int,
+        binary_updates_per_iteration: int = 1,
+        weighted_updates_per_iteration: int = 1,
+        heterochronous_matrix: Optional[
+            Float[
+                torch.Tensor,
+                "{self.num_nodes} {self.num_nodes} {num_iterations*binary_updates_per_iteration}",
+            ]
+        ] = None,
+    ) -> Tuple[
+        List[Tuple[int, int]],
+        Float[
+            torch.Tensor,
+            "{self.num_nodes} {self.num_nodes} {num_iterations*binary_updates_per_iteration}",
+        ],
+        Optional[
+            Float[
+                torch.Tensor,
+                "{self.num_nodes} {self.num_nodes} {num_iterations*weighted_updates_per_iteration}",
+            ]
+        ],
+    ]:
+        """
+        Trains the network for a specified number of iterations.
+        At each iteration, a number of binary updates and weighted updates are performed.
+
+        Parameters:
+            - num_iterations (int): The number of iterations to train the network for.
+            - binary_updates_per_iteration (int): The number of binary updates to perform at each iteration. Defaults to 1.
+            - weighted_updates_per_iteration (int): The number of weighted updates to perform at each iteration. Defaults to 1.
+            - heterochronous_matrix (Pytorch tensor of shape (num_nodes, num_nodes, num_iterations*binary_updates_per_iteration), optional): The heterochronous development probability matrix. Defaults to None.
+
+        Returns:
+            - added_edges (List[Tuple[int, int]]): The edges that were added to the adjacency matrix at each iteration.
+            - adjacency_snapshots (Pytorch tensor of shape (num_nodes, num_nodes, num_iterations*binary_updates_per_iteration)): The adjacency matrices at each iteration of the binary updates.
+            - weight_snapshots (Pytorch tensor of shape (num_nodes, num_nodes, num_iterations*weighted_updates_per_iteration)): The weight matrices at each iteration of the weighted updates.
+        """
+
+        added_edges_list = []
+        adjacency_snapshots = torch.zeros(
+            (
+                self.num_nodes,
+                self.num_nodes,
+                num_iterations * binary_updates_per_iteration,
+            )
+        )
+
+        if weighted_updates_per_iteration != 0:
+            assert hasattr(
+                self, "weight_matrix"
+            ), "Weighted updates per iteration was specified, but no alpha value was initialised."
+            weight_snapshots = torch.zeros(
+                (
+                    self.num_nodes,
+                    self.num_nodes,
+                    num_iterations * weighted_updates_per_iteration,
+                )
+            )
+
+        if heterochronous_matrix is None:
+            heterochronous_matrix = torch.ones(
+                (
+                    self.num_nodes,
+                    self.num_nodes,
+                    num_iterations * binary_updates_per_iteration,
+                ),
+                dtype=self.seed_adjacency_matrix.dtype,
+            )
+
+        for ii in tqdm(range(num_iterations)):
+            for jj in range(binary_updates_per_iteration):
+                added_edges, adjacency_matrix = self.binary_update(
+                    heterochronous_matrix[:, :, ii * binary_updates_per_iteration + jj]
+                )
+                adjacency_snapshots[:, :, ii] = adjacency_matrix
+                added_edges_list.append(added_edges)
+
+            for jj in range(weighted_updates_per_iteration):
+                weight_matrix = self.weighted_update()
+                weight_snapshots[:, :, ii * weighted_updates_per_iteration + jj] = (
+                    weight_matrix
+                )
+
+        if weighted_updates_per_iteration == 0:
+            return added_edges_list, adjacency_snapshots, None
+
+        return added_edges_list, adjacency_snapshots, weight_snapshots

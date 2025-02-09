@@ -20,6 +20,5 @@ The aim of this project was to make GNMs more accessable to the wider research c
 
 
 ## References 
-  [1] [Rubinov, M., & Sporns, O. (2010). Complex network measures of brain connectivity: Uses and interpretations. NeuroImage, 52(3), 1059–1069.](https://doi.org/10.1016%2Fj.neuroimage.2009.10.003)
-
-  [2] [Akarca, D., Schiavi, S., Achterberg, J., Genc, S., Jones, D. K., & Astle, D. E. (2023). A weighted generative model of the human connectome. Neuroscience.](https://doi.org/10.1101/2023.06.23.546237)
+1. [Rubinov, M., & Sporns, O. (2010). Complex network measures of brain connectivity: Uses and interpretations. NeuroImage, 52(3), 1059–1069.](https://doi.org/10.1016%2Fj.neuroimage.2009.10.003)
+2. [Akarca, D., Schiavi, S., Achterberg, J., Genc, S., Jones, D. K., & Astle, D. E. (2023). A weighted generative model of the human connectome. Neuroscience.](https://doi.org/10.1101/2023.06.23.546237)

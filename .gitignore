@@ -6,10 +6,11 @@ __pycache__/
 # The code archive
 archive/
 
+# Various folders that should not be tracked
 site/
-
-# wandb
 wandb/
+build/
+*.egg-info/
 
 ./workbook.ipynb
 ./eval_gen_rules.py

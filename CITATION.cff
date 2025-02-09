@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Young"
+  given-names: "Edward James"
+  orcid: "0000-0003-0884-3195"  
+- family-names: "Mills"
+  given-names: "William"
+  orcid: "YOUR-ORCID"  
+- family-names: "Poli"
+  given-names: "Francesco"
+  orcid: "YOUR-ORCID"  
+- family-names: "Astle"
+  given-names: "Duncan E."
+  orchid: "0000-0002-7042-5392"
+title: "GenerativeNetworkModels"
+version: 0.1
+doi: "DOI-IF-AVAILABLE"  # Add when we have a DOI
+date-released: "2024"
+url: "https://github.com/EdwardJamesYoung/GenerativeNetworkModels"
