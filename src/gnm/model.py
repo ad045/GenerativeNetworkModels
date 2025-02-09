@@ -231,8 +231,8 @@ class GenerativeNetworkModel:
             Optimiser for weight updates.
 
     See Also:
-        - :class:`BinaryGenerativeParameters`: Parameters controlling binary network growth
-        - :class:`WeightedGenerativeParameters`: Parameters controlling weight optimisation
+        - BinaryGenerativeParameters: Parameters controlling binary network growth
+        - WeightedGenerativeParameters: Parameters controlling weight optimisation
     """
 
     @jaxtyped(typechecker=typechecked)
