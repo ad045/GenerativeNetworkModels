@@ -1,10 +1,4 @@
 mkdocs==1.5.3
-mkdocs-autorefs==1.3.0
-mkdocs-get-deps @ file:///home/conda/feedstock_root/build_artifacts/mkdocs-get-deps_1734352941277/work
 mkdocs-material==9.5.3
-mkdocs-material-extensions==1.3.1
-mkdocstrings==0.28.0
-mkdocstrings-python==1.14.6
-nbsphinx==0.9.3
-ipykernel==6.27.1
-griffe==1.5.6
+mkdocstrings==0.24.0
+mkdocstrings-python==1.7.5
