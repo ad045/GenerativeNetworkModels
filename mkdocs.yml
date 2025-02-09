@@ -24,4 +24,8 @@ nav:
   - Home: index.md
   - Getting Started: getting-started.md
   - User Guide: user-guide.md
-  - API Reference: api-reference.md
+  - API Reference: 
+    - Overview: api-reference/index.md
+    - Generative Network Model: api-reference/generative-network-model.md
+    - Generative Rules: api-reference/generative-rules.md
+    - Optimisation Criteria: api-reference/optimisation-criteria.md
