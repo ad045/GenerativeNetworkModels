@@ -1,6 +1,6 @@
 site_name: Generative Network Models Toolbox
 theme:
-  name: material
+  name: material 
   features:
     - navigation.tabs
     - navigation.sections
