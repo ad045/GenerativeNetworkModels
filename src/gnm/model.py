@@ -30,7 +30,7 @@ class BinaryGenerativeParameters:
     proportional to the product of a distance factor $d_{ij}$, a preferential wiring
     factor $k_{ij}$, and a developmental factor $h_{ij}$:
     $$
-        P_{ij} \propto d_{ij} \times k_{ij} \times h_{ij}
+        P_{ij} \propto d_{ij} \\times k_{ij} \cdot h_{ij}
     $$
 
     Attributes:
@@ -38,6 +38,7 @@ class BinaryGenerativeParameters:
             Parameter ($\eta$) controlling the influence of Euclidean distances $D_{ij}$
             on wiring probability. More negative values indicate lower wiring probabilities
             between nodes that are futher away.
+
             - For power law: $d_{ij} = D_{ij}^{\eta}$
             - For exponential: $d_{ij} = \exp(\eta D_{ij})$
 
@@ -45,12 +46,14 @@ class BinaryGenerativeParameters:
             Parameter ($\gamma$) controlling the influence of the preferential wiring rule $K_{ij}$
             on wiring probability. Larger values indicate stronger preference creating
             connections between nodes that have high preferential value.
+
             - For power law: $k_{ij} = K_{ij}^{\gamma}$
             - For exponential: $k_{ij} = \exp(\gamma K_{ij})$
 
         lambdah (float):
             Parameter ($\lambda$) controlling the influence of heterochronicity $H_{ij}$ on wiring
             probability. Larger values indicate stronger temporal dependence in development.
+
             - For power law: $h_{ij} = H_{ij}^{\lambda}$
             - For exponential: $h_{ij} = \exp(\lambda H_{ij})$
 
@@ -121,17 +124,17 @@ class WeightedGenerativeParameters:
     function.
 
     At each step, the weights are updated according to:
-    \begin{equation}
-    W_{ij} \gets W_{ij} - \alpha \frac{\partial L}{\partial W_{ij}},
-    \end{equation}
-    where L is the optimisation criterion and $\alpha$ is the learning rate.
+    $$
+    W_{ij} \gets W_{ij} - \\alpha \\frac{\partial L}{\partial W_{ij}},
+    $$
+    where L is the optimisation criterion and $\\alpha$ is the learning rate.
     Note that only those weights present in the binary network adjacency matrix $A_{ij}$
     are updated.
     Additionally, symmetry is enforced so that we always have $W_{ij} = W_{ji}$.
 
     Attributes:
         alpha (float):
-            Learning rate ($\alpha$) for gradient descent optimisation of weights.
+            Learning rate ($\\alpha$) for gradient descent optimisation of weights.
             Controls how much weights change in response to gradients:
             larger values mean bigger steps but potential instability,
             smaller values mean more stable but slower optimisation.
