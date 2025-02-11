@@ -414,15 +414,15 @@ class GenerativeNetworkModel:
         4. Normalise the probabilities to sum to one, $P_{ij} \gets P_{ij} / \sum_{kl} P_{kl}$
 
         An edge $(a,b)$ is then sampled from the normalised probabilities.
-        This edge is added to the adjacency matrix, $A_{ab} \gets 1$.
-        If the model is weighted, the edge is also added to the weight matrix, $W_{ab} \gets 1$.
+        This edge is added to the adjacency matrix, $A_{ab} \gets 1, A_{ba} \gets 1$.
+        If the model is weighted, the edge is also added to the weight matrix, $W_{ab} \gets 1, W_{ba} \gets 1$.
 
         Args:
             heterochronous_matrix:
                 The heterochronous development matrix $H_{ij}$ for this time step. Defaults to None.
 
         Returns:
-            added_edges: The edge $(a,b)$ that was added to the adjacency matrix, $A_{ab} \gets 1$.
+            added_edges: The edge $(a,b)$ that was added to the adjacency matrix, $A_{ab} \gets 1, A_{ba} \gets 1$.
             adjacency_matrix: (A copy of) the updated adjacency matrix after the binary update, $A_{ij}$.
 
         See Also:
@@ -496,7 +496,7 @@ class GenerativeNetworkModel:
         $$
         Following the update step, the following postprocessing steps are performed:
 
-        1. Symmetry: The weight matrix is made symmetric by averaging with its transpose.
+        1. Symmetry: The weight matrix is made symmetric by averaging with its transpose, $W \gets (1/2)(W + W^T)$.
         2. Clipping: The weights are clipped to the specified bounds $W_{\\rm lower} \leq W_{ij} \leq W_{\\rm upper}$.
         3. Consistency with binary adjacency: All weights where the adjacency matrix is zero are set to zero, so that if $A_{ij} = 0$ then $W_{ij} = 0$.
 
