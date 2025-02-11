@@ -151,12 +151,12 @@ class WeightedGenerativeParameters:
             by keeping values in a reasonable range.
 
         weight_lower_bound (float, optional):
-            Minimum allowed value for any weight (W_{\\rm lower}). All weights
+            Minimum allowed value for any weight ($W_{\\rm lower}$). All weights
             will be clipped to stay above this value. Must be non-negative.
             Defaults to 0.0.
 
         weight_upper_bound (float, optional):
-            Maximum allowed value for any weight (W_{\\rm upper}). All weights
+            Maximum allowed value for any weight ($W_{\\rm upper}$). All weights
             will be clipped to stay below this value. Must be greater
             than weight_lower_bound. Defaults to infinity.
 
@@ -201,12 +201,8 @@ class GenerativeNetworkModel:
 
     1. Binary Growth Phase:
        The network's topology is determined by iteratively adding edges to an adjacency matrix
-       $A_{ij}$ based on three factors:
-
-       - Physical distance between nodes
-       - Topological similarity (through a generative rule like matching index)
-       - Developmental timing (heterochronicity)
-
+       $A_{ij}$ based on three factors (a) Physical distance between nodes, (b) Topological similarity
+       (through the generative rule), (c) Developmental timing (heterochronicity).
        For more details, see (REF BinaryGenerativeParameters and binary_update method).
 
     2. Weight Optimisation Phase (Optional):
