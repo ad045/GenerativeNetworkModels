@@ -30,7 +30,7 @@ class BinaryGenerativeParameters:
     proportional to the product of a distance factor $d_{ij}$, a preferential wiring
     factor $k_{ij}$, and a developmental factor $h_{ij}$:
     $$
-        P_{ij} \propto d_{ij} \\times k_{ij} \cdot h_{ij}
+        P_{ij} \propto d_{ij} \\times k_{ij} \\times h_{ij}
     $$
 
     Attributes:
@@ -151,12 +151,12 @@ class WeightedGenerativeParameters:
             by keeping values in a reasonable range.
 
         weight_lower_bound (float, optional):
-            Minimum allowed value for any weight (W_lower). All weights
+            Minimum allowed value for any weight (W_{\\rm lower}). All weights
             will be clipped to stay above this value. Must be non-negative.
             Defaults to 0.0.
 
         weight_upper_bound (float, optional):
-            Maximum allowed value for any weight (W_upper). All weights
+            Maximum allowed value for any weight (W_{\\rm upper}). All weights
             will be clipped to stay below this value. Must be greater
             than weight_lower_bound. Defaults to infinity.
 
@@ -202,14 +202,16 @@ class GenerativeNetworkModel:
     1. Binary Growth Phase:
        The network's topology is determined by iteratively adding edges to an adjacency matrix
        $A_{ij}$ based on three factors:
+
        - Physical distance between nodes
        - Topological similarity (through a generative rule like matching index)
        - Developmental timing (heterochronicity)
+
        For more details, see (REF BinaryGenerativeParameters and binary_update method).
 
     2. Weight Optimisation Phase (Optional):
        If weighted parameters are provided, the model also optimizes edge weights $W_{ij}$
-       through gradient descent on a loss.
+       through gradient descent on a loss, $L(W)$.
        For more details, see (REF WeightedGenerativeParameters and weighted_update method).
 
     Attributes:
@@ -242,32 +244,34 @@ class GenerativeNetworkModel:
     @jaxtyped(typechecker=typechecked)
     def __init__(
         self,
-        seed_adjacency_matrix: Float[torch.Tensor, "num_nodes num_nodes"],
-        distance_matrix: Float[torch.Tensor, "num_nodes num_nodes"],
         binary_parameters: BinaryGenerativeParameters,
-        seed_weight_matrix: Optional[Float[torch.Tensor, "num_nodes num_nodes"]] = None,
+        seed_adjacency_matrix: Float[torch.Tensor, "num_nodes num_nodes"],
+        distance_matrix: Optional[Float[torch.Tensor, "num_nodes num_nodes"]] = None,
         weighted_parameters: Optional[WeightedGenerativeParameters] = None,
+        seed_weight_matrix: Optional[Float[torch.Tensor, "num_nodes num_nodes"]] = None,
     ):
         """Initialise a new Generative Network Model using the specified parameters.
 
         The initialisation process:
+
         1. Validates input matrices (symmetry, binary values, etc.).
         2. Stores the binary parameters and optionally the weighted parameters.
         3. Precomputes a distance factor matrix based on distance_relationship_type.
         4. If weighted parameters are provided, prepares the weight matrix and optimiser.
 
         Args:
+            binary_parameters:
+                Parameters controlling network growth.
             seed_adjacency_matrix:
                 Initial network structure. Must be a binary symmetric matrix.
             distance_matrix:
-                Physical distances between nodes. Must be symmetric and non-negative.
-            binary_parameters:
-                Parameters controlling network growth.
+                Physical distances between nodes. Must be symmetric and non-negative. If not provided,
+                all distances are set to 1.
+            weighted_parameters:
+                Parameters controlling weight optimisation. If None, only binary growth is performed.
             seed_weight_matrix:
                 Initial weight matrix for weighted networks. If None but weighted parameters
                 are provided, a matrix matching the adjacency support is used.
-            weighted_parameters:
-                Parameters controlling weight optimisation. If None, only binary growth is performed.
 
         Raises:
             ValueError: If input matrices don't meet requirements (binary, symmetric, etc.) or
@@ -293,7 +297,13 @@ class GenerativeNetworkModel:
 
         self.seed_adjacency_matrix = seed_adjacency_matrix
         self.adjacency_matrix = seed_adjacency_matrix.clone()
-        self.distance_matrix = distance_matrix
+        if distance_matrix is None:
+            distance_matrix = torch.ones(
+                (seed_adjacency_matrix.shape[0], seed_adjacency_matrix.shape[1]),
+                dtype=seed_adjacency_matrix.dtype,
+            )
+        else:
+            self.distance_matrix = distance_matrix
         self.num_nodes = seed_adjacency_matrix.shape[0]
 
         # -----------------
@@ -314,36 +324,74 @@ class GenerativeNetworkModel:
 
         # -----------------
         # Weighted parameters
-        self.weighted_parameters = weighted_parameters
-        self.seed_weight_matrix = None
-        self.weight_matrix = None
-        self.optimiser = None
-
         if self.weighted_parameters is not None:
-            # If user didn't provide seed_weight_matrix, initialise from adjacency.
-            if seed_weight_matrix is None:
-                self.seed_weight_matrix = self.adjacency_matrix.clone()
-            else:
-                # Validate user-provided weight matrix.
-                if not torch.allclose(seed_weight_matrix, seed_weight_matrix.T):
-                    raise ValueError("seed_weight_matrix must be symmetric.")
-                if torch.any(seed_weight_matrix < 0):
-                    raise ValueError("seed_weight_matrix must be non-negative.")
-                if torch.any((self.adjacency_matrix == 0) & (seed_weight_matrix != 0)):
-                    raise ValueError(
-                        "seed_weight_matrix must have support only where adjacency is non-zero."
-                    )
-                self.seed_weight_matrix = seed_weight_matrix
+            self.weighted_initialisation(weighted_parameters, seed_weight_matrix)
+        else:
+            self.weighted_parameters = None
+            self.seed_weight_matrix = None
+            self.weight_matrix = None
+            self.optimiser = None
 
-            # Create a copy for the actual weight matrix that will be optimised.
-            self.weight_matrix = self.seed_weight_matrix.clone().requires_grad_(True)
+    @typechecked
+    def weighted_initialisation(
+        self,
+        weighted_parameters: WeightedGenerativeParameters,
+        seed_weight_matrix: Optional[Float[torch.Tensor, "num_nodes num_nodes"]] = None,
+    ):
+        """Initialise the weight matrix and optimiser for the weighted GNM.
+        If weighted parameters are not passed in during initialisation, this method
+        must be called before any weighted updates can be performed.
 
-            # Initialise optimiser.
-            self.optimiser = optim.SGD(
-                [self.weight_matrix],
-                lr=self.weighted_parameters.alpha,
-                maximize=self.weighted_parameters.maximise_criterion,
+        Args:
+            weighted_parameters:
+                Parameters controlling weight optimisation.
+
+            seed_weight_matrix:
+                A seed weight matrix to initialise $W_{ij}$.
+                If this is not provided, then the weight matrix is initialised to the
+                current adjacency matrix, $W_{ij} \gest A_{ij}$.
+                If provided, the matrix must be symmetric, non-negative, and have support
+                only where the adjacency matrix is non-zero.
+                Defaults to None.
+
+        Raises:
+            ValueError: If the seed_weight_matrix is not symmetric, non-negative, or has
+                        support where the adjacency matrix is zero.
+
+        See Also:
+            - WeightedGenerativeParameters: Parameters controlling weight optimisation
+            - weighted_update: Method that uses these parameters
+            - __init__: Initialisation method that calls this function if weighted_parameters are provided.
+        """
+        self.weighted_parameters = weighted_parameters
+
+        # If user didn't provide seed_weight_matrix, initialise from adjacency.
+        if seed_weight_matrix is None:
+            print("No weight matrix provided. Initialising from adjacency matrix.")
+            seed_weight_matrix = self.adjacency_matrix.clone()
+
+        # Validate user-provided weight matrix.
+        if not torch.allclose(seed_weight_matrix, seed_weight_matrix.T):
+            raise ValueError("seed_weight_matrix must be symmetric.")
+        if torch.any(seed_weight_matrix < 0):
+            raise ValueError("seed_weight_matrix must be non-negative.")
+        if torch.any((self.adjacency_matrix == 0) & (seed_weight_matrix != 0)):
+            raise ValueError(
+                "seed_weight_matrix must have support only where adjacency is non-zero."
             )
+
+        # If the checks pass, store the weight matrix and initialise the optimiser.
+        self.seed_weight_matrix = seed_weight_matrix
+
+        # Create a copy for the actual weight matrix that will be optimised.
+        self.weight_matrix = self.seed_weight_matrix.clone().requires_grad_(True)
+
+        # Initialise optimiser.
+        self.optimiser = optim.SGD(
+            [self.weight_matrix],
+            lr=self.weighted_parameters.alpha,
+            maximize=self.weighted_parameters.maximise_criterion,
+        )
 
     @jaxtyped(typechecker=typechecked)
     def binary_update(
@@ -354,13 +402,36 @@ class GenerativeNetworkModel:
     ) -> Tuple[Tuple[int, int], Float[torch.Tensor, "num_nodes num_nodes"]]:
         """
         Performs one update step of the adjacency matrix for the binary GNM.
+        To perform an update, the model calculates the unnormalised wiring probabilities for each edge
+        not  currently present within the adjacency matrix (i.e., all notes with $A_{ij} = 0$).
+        The wiring probability $(i,j)$ based on a distance factor $d_{ij}$, a preferential wiring
+        factor $k_{ij}$, and a developmental factor $h_{ij}$.
+        The unnormalised probability is proportional to the product of these factors:
+        $$
+        P_{ij} = d_{ij} \\times k_{ij} \\times h_{ij}
+        $$
+        These probabilities are then postprocessed by:
 
-        Parameters:
-            - heterochronous_matrix (Pytorch tensor of shape (num_nodes, num_nodes), optional): The heterochronous development probability matrix. Defaults to None.
+        1. Set the probability for all existing connections to be zero, $P_{ij} \gets P_{ij} \\times (1 - A_{ij})$
+        2. Set the probability of self-connections to be zero, $P_{ii} \gets 0$
+        3. Add on a small offset to prevent division by zero, $P_{ij} \gets P_{ij} + \\epsilon$
+        4. Normalise the probabilities to sum to one, $P_{ij} \gets P_{ij} / \sum_{kl} P_{kl}$
+
+        An edge $(a,b)$ is then sampled from the normalised probabilities.
+        This edge is added to the adjacency matrix, $A_{ab} \gets 1$.
+        If the model is weighted, the edge is also added to the weight matrix, $W_{ab} \gets 1$.
+
+        Args:
+            heterochronous_matrix:
+                The heterochronous development matrix $H_{ij}$ for this time step. Defaults to None.
 
         Returns:
-            - added_edges (Tuple[int, int]): The edge that was added to the adjacency matrix.
-            - adjacency_matrix (Pytorch tensor of shape (num_nodes, num_nodes)): (A copy of) the updated adjacency matrix.
+            added_edges: The edge $(a,b)$ that was added to the adjacency matrix, $A_{ab} \gets 1$.
+            adjacency_matrix: (A copy of) the updated adjacency matrix after the binary update, $A_{ij}$.
+
+        See Also:
+            - BinaryGenerativeParameters: Parameters controlling binary network growth
+            - GenerativeRule: Base class for generative rules that transform an adjacency matrix $A_{ij}$ into a preferential wiring matrix $K_{ij}$
         """
 
         if heterochronous_matrix is None:
@@ -422,11 +493,36 @@ class GenerativeNetworkModel:
         self,
     ) -> Float[torch.Tensor, "{self.num_nodes} {self.num_nodes}"]:
         """
-        Performs one update step of the weight matrix for the weighted GNM.
+        Performs one update step of the weight matrix $W_{ij}$ for the weighted GNM. The weights are updated
+        using gradient descent on the specified optimisation criterion, with the learning rate $\\alpha$:
+        $$
+        W_{ij} \gets W_{ij} - \\alpha \\frac{\partial L}{\partial W_{ij}}
+        $$
+        Following the update step, the following postprocessing steps are performed:
+
+        1. Symmetry: The weight matrix is made symmetric by averaging with its transpose.
+        2. Clipping: The weights are clipped to the specified bounds $W_{\\rm lower} \leq W_{ij} \leq W_{\\rm upper}$.
+        3. Consistency with binary adjacency: All weights where the adjacency matrix is zero are set to zero, so that if $A_{ij} = 0$ then $W_{ij} = 0$.
+
+        Raises:
+            AttributeError: If the model does not have a weight matrix, optimisation criterion, or optimiser.
 
         Returns:
-            - weight_matrix (Pytorch tensor of shape (num_nodes, num_nodes)): (A copy of) the updated weight matrix.
+            weight_matrix: (A detached copy of) the updated weight matrix, $W_{ij}$
         """
+        # Check that the model has a weight matrix, optimisation criterion, and optimiser
+        if not hasattr(self, "weight_matrix"):
+            raise AttributeError(
+                "Model does not have a weight matrix. Cannot perform weighted updates. Please call the weighted_initialisation method first."
+            )
+        if not hasattr(self, "optimisation_criterion"):
+            raise AttributeError(
+                "Model does not have an optimisation criterion. Cannot perform weighted updates. Please call the weighted_initialisation method first."
+            )
+        if not hasattr(self, "optimiser"):
+            raise AttributeError(
+                "Model does not have an optimiser. Cannot perform weighted updates. Please call the weighted_initialisation method first."
+            )
 
         # Perform the optimisation step on the weights.
         # Compute the loss
@@ -475,20 +571,23 @@ class GenerativeNetworkModel:
             ]
         ],
     ]:
-        """
-        Trains the network for a specified number of iterations.
+        """Trains the network for a specified number of iterations.
         At each iteration, a number of binary updates and weighted updates are performed.
 
-        Parameters:
-            - num_iterations (int): The number of iterations to train the network for.
-            - binary_updates_per_iteration (int): The number of binary updates to perform at each iteration. Defaults to 1.
-            - weighted_updates_per_iteration (int): The number of weighted updates to perform at each iteration. Defaults to 1.
-            - heterochronous_matrix (Pytorch tensor of shape (num_nodes, num_nodes, num_iterations*binary_updates_per_iteration), optional): The heterochronous development probability matrix. Defaults to None.
+        Args:
+            num_iterations:
+                The number of iterations to update the network for.
+            binary_updates_per_iteration:
+                The number of binary updates to perform at each iteration. Defaults to 1.
+            weighted_updates_per_iteration:
+                The number of weighted updates to perform at each iteration. Defaults to 1.
+            heterochronous_matrix:
+                The heterochronous development probability matrix, $H_{ij}(t)$, for each binary update step $t$. Defaults to None.
 
         Returns:
-            - added_edges (List[Tuple[int, int]]): The edges that were added to the adjacency matrix at each iteration.
-            - adjacency_snapshots (Pytorch tensor of shape (num_nodes, num_nodes, num_iterations*binary_updates_per_iteration)): The adjacency matrices at each iteration of the binary updates.
-            - weight_snapshots (Pytorch tensor of shape (num_nodes, num_nodes, num_iterations*weighted_updates_per_iteration)): The weight matrices at each iteration of the weighted updates.
+            added_edges: The edges $(a,b)$ that were added to the adjacency matrix $A_{ij}$ at each iteration.
+            adjacency_snapshots: The adjacency matrices $A_{ij}$ at each binary update step.
+            weight_snapshots: The weight matrices $W_{ij}$ at each iteration of the weighted updates.
         """
 
         added_edges_list = []
