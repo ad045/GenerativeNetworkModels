@@ -20,6 +20,7 @@ class BinaryGenerativeParameters:
     This dataclass encapsulates the parameters that determine how a binary generative
     network model grows and forms connections. The parameters control three main aspects
     of network generation:
+
     1. The influence of physical distance, $\eta$
     2. The influence of topological similarity, $\gamma$
     3. The influence of developmental factors, $\lambda$
@@ -28,9 +29,9 @@ class BinaryGenerativeParameters:
     as specified by the relationship type parameters. The total wiring probability is
     proportional to the product of a distance factor $d_{ij}$, a preferential wiring
     factor $k_{ij}$, and a developmental factor $h_{ij}$:
-    \begin{equation}
+    $$
         P_{ij} \propto d_{ij} \times k_{ij} \times h_{ij}
-    \end{equation}
+    $$
 
     Attributes:
         eta (float):
