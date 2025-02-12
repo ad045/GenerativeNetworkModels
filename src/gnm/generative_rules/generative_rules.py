@@ -1,8 +1,7 @@
-from jaxtyping import Float, Int, jaxtyped
+from jaxtyping import Float, jaxtyped
 from typeguard import typechecked
 import torch
 from abc import ABC, abstractmethod
-import numpy as np
 
 
 # abstract base class for all other rules

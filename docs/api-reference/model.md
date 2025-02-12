@@ -1,5 +1,3 @@
-# model
-
 ::: gnm.BinaryGenerativeParameters
 
 ::: gnm.WeightedGenerativeParameters

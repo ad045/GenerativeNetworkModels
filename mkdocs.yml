@@ -15,10 +15,12 @@ plugins:
         python:
           paths: [src]  
           options:
-            show_source: false  
+            show_source: true  
             show_root_heading: true
             heading_level: 2
             docstring_style: google  
+            merge_init_into_class: true
+  - mkdocstrings.autorefs
 
 markdown_extensions:
   - pymdownx.arithmatex:
@@ -37,6 +39,9 @@ nav:
     - Overview: examples/index.md
   - API Reference: 
     - Overview: api-reference/index.md
-    - Generative Network Model: api-reference/generative-network-model.md
-    - Generative Rules: api-reference/generative-rules.md
-    - Optimisation Criteria: api-reference/optimisation-criteria.md
+    - model: api-reference/model.md
+    - generative_rules: api-reference/generative-rules.md
+    - weight_criteria: api-reference/weight-criteria.md
+    - fitting: api-reference/fitting.md
+    - defaults: api-reference/defaults.md
+    - utils: api-reference/utils.md

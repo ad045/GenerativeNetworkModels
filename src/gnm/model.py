@@ -127,7 +127,7 @@ class WeightedGenerativeParameters:
     $$
     W_{ij} \gets W_{ij} - \\alpha \\frac{\partial L}{\partial W_{ij}},
     $$
-    where L is the optimisation criterion and $\\alpha$ is the learning rate.
+    where $L$ is the optimisation criterion and $\\alpha$ is the learning rate.
     Note that only those weights present in the binary network adjacency matrix $A_{ij}$
     are updated.
     Additionally, symmetry is enforced so that we always have $W_{ij} = W_{ji}$.
@@ -166,13 +166,10 @@ class WeightedGenerativeParameters:
             Defaults to False.
 
     Examples:
+        >>> communicability_optimisation_criterion = Communicability(normalisation=False, omega=1.0)
         >>> weighted_parameters = WeightedGenerativeParameters(
-        ...     alpha=0.01,  # Small learning rate for stable optimisation
-        ...     optimisation_criterion=DistanceWeightedCommunicability(
-        ...         normalisation=True,
-        ...         distance_matrix=D,
-        ...         omega=1.0
-        ...     ),
+        ...     alpha=0.01,
+        ...     optimisation_criterion=communicability_optimisation_criterion,
         ...     optimisation_normalisation=True,
         ...     weight_lower_bound=0.0,
         ...     weight_upper_bound=1.0,
@@ -232,6 +229,22 @@ class GenerativeNetworkModel:
         optimiser (torch.optim.Optimizer, optional):
             Optimiser for weight updates.
 
+    Examples:
+        >>> binary_parameters = BinaryGenerativeParameters(
+        ...     eta=1.0,
+        ...     gamma=-0.5,
+        ...     lambdah=1.0,
+        ...     distance_relationship_type='powerlaw',
+        ...     preferential_relationship_type='exponential',
+        ...     heterochronicity_relationship_type='powerlaw',
+        ...     generative_rule=MatchingIndex(divisor='mean')
+        ... )
+        >>> seed_adjacency_matrix = torch.zeros((10, 10))
+        >>> model = GenerativeNetworkModel(
+        ...     binary_parameters=binary_parameters,
+        ...     seed_adjacency_matrix=seed_adjacency_matrix
+        ... )
+
     See Also:
         - BinaryGenerativeParameters: Parameters controlling binary network growth
         - WeightedGenerativeParameters: Parameters controlling weight optimisation
@@ -246,9 +259,7 @@ class GenerativeNetworkModel:
         weighted_parameters: Optional[WeightedGenerativeParameters] = None,
         seed_weight_matrix: Optional[Float[torch.Tensor, "num_nodes num_nodes"]] = None,
     ):
-        """Initialise a new Generative Network Model using the specified parameters.
-
-        The initialisation process:
+        """The initialisation process for the Generative Network Model:
 
         1. Validates input matrices (symmetry, binary values, etc.).
         2. Stores the binary parameters and optionally the weighted parameters.
