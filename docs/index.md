@@ -11,7 +11,7 @@ The aim of this project was to make GNMs more accessable to the wider research c
 - [API Reference](api-reference/index.md)
     - [model](api-reference/model.md)
     - [gnm.generative_rules](api-reference/generative-rules.md)
-    - [gnm.weight_criteria](api-refernece/weight-criteria.md)
+    - [gnm.weight_criteria](api-reference/weight-criteria.md)
     - [gnm.fitting](api-reference/fitting.md)
     - [gnm.defaults](api-reference/defaults.md)
     - [gnm.utils](api-reference/utils.md)
