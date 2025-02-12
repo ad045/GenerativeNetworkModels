@@ -10,6 +10,7 @@ theme:
 
 plugins:
   - search
+  - autorefs
   - mkdocstrings:
       handlers:
         python:
@@ -20,7 +21,6 @@ plugins:
             heading_level: 2
             docstring_style: google  
             merge_init_into_class: true
-  - mkdocstrings.autorefs
 
 markdown_extensions:
   - pymdownx.arithmatex:
