@@ -9,9 +9,12 @@ The aim of this project was to make GNMs more accessable to the wider research c
 - [Getting Started](getting-started.md)
 - [User Guide](user-guide.md)
 - [API Reference](api-reference/index.md)
-    - [Generative Network model](api-reference/generative-network-model.md)
-    - [Generative Rules](api-reference/generative-rules.md)
-    - [Optimisation Criteria](api-reference/optimisation-criteria.md)
+    - [model](api-reference/model.md)
+    - [gnm.generative_rules](api-reference/generative-rules.md)
+    - [gnm.weight_criteria](api-refernece/weight-criteria.md)
+    - [gnm.fitting](api-reference/fitting.md)
+    - [gnm.defaults](api-reference/defaults.md)
+    - [gnm.utils](api-reference/utils.md)
 
 ## Authors and Acknowledgements
 - [Edward James Young](https://github.com/EdwardJamesYoung) (ey245@cam.ac.uk)

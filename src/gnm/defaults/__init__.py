@@ -1,4 +1,4 @@
-from get_defaults import (
+from .get_defaults import (
     get_binary_consensus_network,
     get_weighted_consensus_network,
     get_distance_matrix,
