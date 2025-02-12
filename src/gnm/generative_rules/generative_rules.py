@@ -2,7 +2,8 @@ from jaxtyping import Float, jaxtyped
 from typeguard import typechecked
 import torch
 from abc import ABC, abstractmethod
-
+import numpy as np
+from graphing_functions import *
 
 # abstract base class for all other rules
 class GenerativeRule(ABC):
@@ -14,11 +15,9 @@ class GenerativeRule(ABC):
             "all": self._all,  # combine transposition and original
         }
 
-        assert mode in [
-            "all",
-            "in",
-            "out",
-        ], f"Mode '{self.mode}' is not supported. Must be one of 'all', 'in', or 'out'."
+        self.directed = True if mode in ['in', 'out'] else False
+
+        assert mode in ['all', 'in', 'out'], f"Mode '{self.mode}' is not supported. Must be one of 'all', 'in', or 'out'."
         self.mode_fcn = self.modes[mode]
 
     # equation components
@@ -119,11 +118,8 @@ class ClusteringAvg(GenerativeRule):
     @jaxtyped(typechecker=typechecked)
     def pass_rule(self, adjacency_matrix: Float[torch.Tensor, "num_nodes num_nodes"]):
         # TODO: Change clustering coef based on directionary and weighted/binary
-        # TODO: implement clustering coef myself
-
-        return
-        clustering_coef = bct.clustering_coef_bu(adjacency_matrix.cpu().numpy())
-
+    
+        clustering_coef = local_clustering_coefficient(adjacency_matrix, self.directed)
         pairwise_clustering_coefficient = clustering_coef[:, None] + clustering_coef
         clustering_avg = pairwise_clustering_coefficient / 2
         clustering_avg = torch.Tensor(clustering_avg)

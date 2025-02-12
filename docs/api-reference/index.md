@@ -5,6 +5,7 @@ The main models implemented within the package are found in the GenerativeNetwor
 Additionally, there are four main sub-packages. 
 Below, we give the main functionality of each subpackage. 
 See the full docs pages for the functions and classes available in each sub-package.  
+
 1. [gnm.generative_rules](#gnmgenerative_rules)
 2. [gnm.weight_criteria](#gnmweight_criteria)
 3. [gnm.fitting](#gnmfitting)

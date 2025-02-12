@@ -10,8 +10,7 @@ import importlib
 import torch
 import matplotlib.pyplot as plt
 import numpy as np
-
-# from tqdm.notebook import tqdm
+# from tqdm.notebook import tqdm 
 import sample_brain_coordinates
 import GenerativeNetworkModels.GNM
 
@@ -37,7 +36,6 @@ mat_file_path = r"C:\Users\fp02\Downloads\Consensus_Connectomes.mat"
 
 # Load the .mat file
 mat_contents = scipy.io.loadmat(mat_file_path)
-
 
 res_parcellation = 0  # zero is low res, two is high res
 consensus_mat = scipy.io.loadmat(
@@ -79,12 +77,11 @@ coordinates = coordinates[:, [1, 0, 2]]
 coordinates = coordinates - np.mean(coordinates, axis=0)
 
 plt.scatter(
-    coordinates[:, 1],
-    coordinates[:, 2],
-    # coordinates[:, 2],
-    c=degree_list,
-)
-
+        coordinates[:, 1],
+        coordinates[:, 2],
+        #coordinates[:, 2],
+        c=degree_list
+    )
 
 coordinates2 = coordinates.copy()
 coordinates2[:, 2] = coordinates[:, 2] * 1.2 + 18

@@ -16,3 +16,5 @@ build/
 ./eval_gen_rules.py
 ./GNM_original.py
 ./.conda
+./wills_testing_script.py
+
