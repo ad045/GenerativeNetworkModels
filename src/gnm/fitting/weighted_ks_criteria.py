@@ -93,10 +93,10 @@ class WeightedClusteringKS(KSCriterion):
 
     Implements the Onnela et al. (2005) definition of weighted clustering, which uses
     the geometric mean of triangle weights. For each node $u$, the clustering coefficient is:
-
     $$
     c_u = \\frac{1}{k_u(k_u-1)} \sum_{v,w} (\hat{w}_{uv} \\times \hat{w}_{uw} \\times \hat{w}_{vw})^(1/3),
     $$
+
     where $k_u$ is the node strength of node $u$, and $\hat{w}_{uv}$ is the weight of the edge between nodes $u$ and $v$,
     after normalising by dividing by the maximum weight in the network.
     """

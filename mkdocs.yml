@@ -24,6 +24,8 @@ plugins:
             show_if_no_docstring: false
             members:
               - "!^_[^_]"
+              - "^__[^_].*__$"
+              - "^[^_].*"
 
 markdown_extensions:
   - pymdownx.arithmatex:

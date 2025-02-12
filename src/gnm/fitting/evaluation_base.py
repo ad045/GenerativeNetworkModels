@@ -97,14 +97,10 @@ class MaxCriteria(EvaluationCriterion):
     worst-performing (maximum) criterion. This approach ensures that the
     synthetic network must match the real network well across all specified
     properties.
-
-    Args:
-        criteria: List of EvaluationCriterion objects to combine
     """
 
     def __init__(self, criteria: list[EvaluationCriterion]):
-        """Initialize with a list of evaluation criteria.
-
+        """
         Args:
             criteria:
                 List of evaluation criteria to combine
