@@ -60,8 +60,10 @@ class KSCriterion(ABC, EvaluationCriterion):
         """Compute the KS statistic between network property distributions.
 
         Args:
-            synthetic_matrix: Adjacency/weight matrix of the synthetic network
-            real_matrix: Adjacency/weight matrix of the real network
+            synthetic_matrix:
+                Adjacency/weight matrix of the synthetic network
+            real_matrix:
+                Adjacency/weight matrix of the real network
 
         Returns:
             KS statistic comparing the property distributions
