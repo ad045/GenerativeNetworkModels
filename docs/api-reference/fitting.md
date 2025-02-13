@@ -21,30 +21,33 @@
 
 ::: gnm.fitting.BetweennessKS
     options:
-        members:
+        members: []
 
 ::: gnm.fitting.ClusteringKS
     options:
-        members:
+        members: []
 
 ::: gnm.fitting.DegreeKS
     options:
-        members:
+        members: []
 
 ::: gnm.fitting.EdgeLengthKS
     options:
         members:
+            - __init__
 
 ### Weighted KS Criteria
 
 ::: gnm.fitting.WeightedNodeStrengthKS
     options:
         members:
+            - __init__
 
 ::: gnm.fitting.WeightedBetweennessKS
     options:
         members:
+            - __init__
 
 ::: gnm.fitting.WeightedClusteringKS
     options:
-        members:
+        members: []

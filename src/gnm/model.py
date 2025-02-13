@@ -94,8 +94,10 @@ class BinaryGenerativeParameters:
     distance_relationship_type: str
     preferential_relationship_type: str
     heterochronicity_relationship_type: str
-    prob_offset: float = 1e-6
     generative_rule: GenerativeRule
+    prob_offset: float = 1e-6
+    binary_updates_per_iteration: int = 1
+    num_iterations: int
 
     def __post_init__(self):
         # Perform checks on the distance and matching index relationship type.
@@ -145,10 +147,10 @@ class WeightedGenerativeParameters:
             See OptimisationCriterion class for available options like
             distance-weighted communicability or weighted distance.
 
-        optimisation_normalisation (bool):
+        optimisation_normalisation (bool, optional):
             Whether to normalise the optimisation criterion before computing
             gradients. Normalisation can help prevent numerical instability
-            by keeping values in a reasonable range.
+            by keeping values in a reasonable range. Defaults to False
 
         weight_lower_bound (float, optional):
             Minimum allowed value for any weight ($W_{\\rm lower}$). All weights
@@ -184,10 +186,11 @@ class WeightedGenerativeParameters:
 
     alpha: float
     optimisation_criterion: OptimisationCriterion
-    optimisation_normalisation: bool
+    optimisation_normalisation: bool = False
     weight_lower_bound: float = 0.0
     weight_upper_bound: float = float("inf")
     maximise_criterion: bool = False
+    weighted_updates_per_iteration: int = 1
 
 
 class GenerativeNetworkModel:
@@ -331,6 +334,8 @@ class GenerativeNetworkModel:
 
         # -----------------
         # Weighted parameters
+        self.weighted_parameters = weighted_parameters
+
         if self.weighted_parameters is not None:
             self.weighted_initialisation(weighted_parameters, seed_weight_matrix)
         else:
@@ -554,27 +559,24 @@ class GenerativeNetworkModel:
         return self.weight_matrix.detach().clone().cpu()
 
     @jaxtyped(typechecker=typechecked)
-    def train_loop(
+    def run_model(
         self,
-        num_iterations: int,
-        binary_updates_per_iteration: int = 1,
-        weighted_updates_per_iteration: int = 1,
         heterochronous_matrix: Optional[
             Float[
                 torch.Tensor,
-                "{self.num_nodes} {self.num_nodes} {num_iterations*binary_updates_per_iteration}",
+                "{self.num_nodes} {self.num_nodes} {num_binary_updates}",
             ]
         ] = None,
     ) -> Tuple[
         List[Tuple[int, int]],
         Float[
             torch.Tensor,
-            "{self.num_nodes} {self.num_nodes} {num_iterations*binary_updates_per_iteration}",
+            "{self.num_nodes} {self.num_nodes} {num_binary_updates}",
         ],
         Optional[
             Float[
                 torch.Tensor,
-                "{self.num_nodes} {self.num_nodes} {num_iterations*weighted_updates_per_iteration}",
+                "{self.num_nodes} {self.num_nodes} {num_weighted_updates}",
             ]
         ],
     ]:
@@ -584,10 +586,6 @@ class GenerativeNetworkModel:
         Args:
             num_iterations:
                 The number of iterations to update the network for.
-            binary_updates_per_iteration:
-                The number of binary updates to perform at each iteration. Defaults to 1.
-            weighted_updates_per_iteration:
-                The number of weighted updates to perform at each iteration. Defaults to 1.
             heterochronous_matrix:
                 The heterochronous development probability matrix, $H_{ij}(t)$, for each binary update step $t$. Defaults to None.
 
@@ -597,7 +595,12 @@ class GenerativeNetworkModel:
             weight_snapshots: The weight matrices $W_{ij}$ at each iteration of the weighted updates.
         """
 
+        num_iterations = self.binary_parameters.num_iterations
         added_edges_list = []
+        binary_updates_per_iteration = (
+            self.binary_parameters.binary_updates_per_iteration
+        )
+
         adjacency_snapshots = torch.zeros(
             (
                 self.num_nodes,
@@ -606,10 +609,10 @@ class GenerativeNetworkModel:
             )
         )
 
-        if weighted_updates_per_iteration != 0:
-            assert hasattr(
-                self, "weight_matrix"
-            ), "Weighted updates per iteration was specified, but no alpha value was initialised."
+        if self.weighted_parameters is not None:
+            weighted_updates_per_iteration = (
+                self.weighted_parameters.weighted_updates_per_iteration
+            )
             weight_snapshots = torch.zeros(
                 (
                     self.num_nodes,
@@ -617,6 +620,9 @@ class GenerativeNetworkModel:
                     num_iterations * weighted_updates_per_iteration,
                 )
             )
+        else:
+            weighted_updates_per_iteration = 0
+            weight_snapshots = None
 
         if heterochronous_matrix is None:
             heterochronous_matrix = torch.ones(
