@@ -3,6 +3,7 @@ from .evaluation_base import (
     KSCriterion,
     CorrelationCriterion,
     MaxCriteria,
+    MeanCriteria,
     WeightedSumCriteria,
 )
 from .binary_ks_criteria import BetweennessKS, ClusteringKS, DegreeKS, EdgeLengthKS
@@ -23,6 +24,7 @@ __all__ = [
     "KSCriterion",
     "CorrelationCriterion",
     "MaxCriteria",
+    "MeanCriteria",
     "WeightedSumCriteria",
     "BetweennessKS",
     "ClusteringKS",
