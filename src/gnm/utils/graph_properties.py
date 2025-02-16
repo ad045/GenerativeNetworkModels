@@ -1,6 +1,8 @@
 from jaxtyping import Float, jaxtyped
 from typeguard import typechecked
 import torch
+import networkx as nx
+import numpy as np
 
 
 @jaxtyped(typechecker=typechecked)
@@ -45,6 +47,7 @@ def binary_clustering_coefficients(
     return clustering_coefficients
 
 
+@jaxtyped(typechecker=typechecked)
 def weighted_clustering_coefficients(
     weight_matrices: Float[torch.Tensor, "*batch num_nodes num_nodes"]
 ) -> Float[torch.Tensor, "*batch num_nodes"]:
@@ -139,3 +142,20 @@ def communicability(
     # Compute the communicability matrix
     communicability_matrix = torch.matrix_exp(normalised_weight_matrix)
     return communicability_matrix
+
+
+def binary_betweenness_centrality(
+    matrices: Float[torch.Tensor, "num_matrices num_nodes num_nodes"]
+):
+    """Compute betweenness centrality for each node in the network.
+
+    Args:
+        matrices: Batch of adjacency matrices. Shape [num_matrices, num_nodes, num_nodes]
+
+    Returns:
+        torch.Tensor: Array of betweenness centralities for each node in each network.
+    """
+    graphs = [nx.from_numpy_array(matrix.cpu().numpy()) for matrix in matrices]
+    return torch.tensor(
+        [np.array(list(nx.betweenness_centrality(g).values())) for g in graphs]
+    )

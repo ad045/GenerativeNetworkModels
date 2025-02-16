@@ -4,6 +4,7 @@ from .graph_properties import (
     binary_clustering_coefficients,
     weighted_clustering_coefficients,
     communicability,
+    binary_betweenness_centrality,
 )
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "binary_clustering_coefficients",
     "weighted_clustering_coefficients",
     "communicability",
+    "binary_betweenness_centrality",
 ]

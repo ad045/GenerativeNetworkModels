@@ -12,9 +12,24 @@
         members:
             - __call__
 
+::: gnm.fitting.CorrelationCriterion
+    options:
+        members:
+            - __call__ 
+
 ::: gnm.fitting.MaxCriteria
     options:
         members:
+            - __call__
+
+::: gnm.fitting.MeanCriteria
+    options:
+        members: []
+
+::: gnm.fitting.WeightedSumCriteria
+    options:
+        members:
+            - __init__
             - __call__
 
 ### Binary KS Criteria
@@ -49,5 +64,19 @@
             - __init__
 
 ::: gnm.fitting.WeightedClusteringKS
+    options:
+        members: []
+
+### Binary Correlation Criteria
+
+::: gnm.fitting.DegreeCorrelation
+    options:
+        members: []
+    
+::: gnm.fitting.ClusteringCorrelation
+    options:
+        members: []
+    
+::: gnm.fitting.BetweennessCorrelation
     options:
         members: []

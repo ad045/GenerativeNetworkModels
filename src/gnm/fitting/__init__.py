@@ -1,4 +1,10 @@
-from .evaluation_base import EvaluationCriterion, KSCriterion, MaxCriteria
+from .evaluation_base import (
+    EvaluationCriterion,
+    KSCriterion,
+    CorrelationCriterion,
+    MaxCriteria,
+    WeightedSumCriteria,
+)
 from .binary_ks_criteria import BetweennessKS, ClusteringKS, DegreeKS, EdgeLengthKS
 from .weighted_ks_criteria import (
     WeightedNodeStrengthKS,
@@ -6,10 +12,18 @@ from .weighted_ks_criteria import (
     WeightedClusteringKS,
 )
 
+from .binary_corr_criteria import (
+    DegreeCorrelation,
+    ClusteringCorrelation,
+    BetweennessCorrelation,
+)
+
 __all__ = [
     "EvaluationCriterion",
     "KSCriterion",
+    "CorrelationCriterion",
     "MaxCriteria",
+    "WeightedSumCriteria",
     "BetweennessKS",
     "ClusteringKS",
     "DegreeKS",
@@ -17,4 +31,7 @@ __all__ = [
     "WeightedNodeStrengthKS",
     "WeightedBetweennessKS",
     "WeightedClusteringKS",
+    "DegreeCorrelation",
+    "ClusteringCorrelation",
+    "BetweennessCorrelation",
 ]
