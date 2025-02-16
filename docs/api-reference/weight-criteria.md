@@ -8,11 +8,13 @@
 
 ::: gnm.weight_criteria.Weight
     options:
-        members: []
+        members: 
+            - __init__
 
 ::: gnm.weight_criteria.NormalisedWeight
     options:
-        members: []
+        members:
+            - __init__
 
 ## Distance-Based Criteria
 

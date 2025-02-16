@@ -93,6 +93,7 @@ class Communicability(OptimisationCriterion):
         """
         self.omega = omega
 
+    @jaxtyped(typechecker=typechecked)
     def __call__(
         self, weight_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
     ) -> Float[torch.Tensor, "..."]:
@@ -136,6 +137,7 @@ class NormalisedCommunicability(OptimisationCriterion):
         """
         self.omega = omega
 
+    @jaxtyped(typechecker=typechecked)
     def __call__(
         self, weight_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
     ) -> Float[torch.Tensor, "..."]:
@@ -187,6 +189,7 @@ class DistanceWeightedCommunicability(OptimisationCriterion):
         self.distance_matrix = distance_matrix
         self.omega = omega
 
+    @jaxtyped(typechecker=typechecked)
     def __call__(
         self, weight_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
     ) -> Float[torch.Tensor, "..."]:
@@ -248,6 +251,7 @@ class NormalisedDistanceWeightedCommunicability(OptimisationCriterion):
         self.distance_matrix = distance_matrix
         self.omega = omega
 
+    @jaxtyped(typechecker=typechecked)
     def __call__(
         self, weight_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
     ) -> Float[torch.Tensor, "..."]:
@@ -300,6 +304,7 @@ class WeightedDistance(OptimisationCriterion):
         self.distance_matrix = distance_matrix
         self.omega = omega
 
+    @jaxtyped(typechecker=typechecked)
     def __call__(
         self, weight_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
     ) -> Float[torch.Tensor, "..."]:
@@ -332,6 +337,7 @@ class NormalisedWeightedDistance(OptimisationCriterion):
         self.distance_matrix = distance_matrix
         self.omega = omega
 
+    @jaxtyped(typechecker=typechecked)
     def __call__(
         self, weight_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
     ) -> Float[torch.Tensor, "..."]:
@@ -346,32 +352,41 @@ class Weight(OptimisationCriterion):
     """
     Weight optimisation criterion.
     To compute the optimisation criterion, we sum over the elements of
-    the weight matrix.
+    the weight matrix raised to the power of $\omega$.
 
     The loss is then given by:
     $$
-    L(W) = \sum_{ij} W_{ij}
+    L(W) = \sum_{ij} W_{ij}^\omega
     $$
     """
 
+    def __init__(self, omega: float = 1.0):
+        self.omega = omega
+
+    @jaxtyped(typechecker=typechecked)
     def __call__(
         self, weight_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
     ) -> Float[torch.Tensor, "..."]:
-        return torch.sum(weight_matrix, dim=(-2, -1))
+        return torch.sum(torch.pow(weight_matrix, self.omega), dim=(-2, -1))
 
 
 class NormalisedWeight(OptimisationCriterion):
     """
     Normalised Weight optimisation criterion.
     To compute the optimisation criterion, we normalise the weight matrix
-    by dividing by the maximum element.
+    by dividing by the maximum element, and then sum over the elements of
+    the normalised weight matrix raised to the power of $\omega$.
 
     The loss is then given by:
     $$
-    L(W) = \\frac{ \sum_{ij} W_{ij} }{ \max_{ij} W_{ij} }
+    L(W) = \\frac{ \sum_{ij} W^\omega_{ij} }{ \max_{ij} W^\omega_{ij} }
     $$
     """
 
+    def __init__(self, omega: float = 1.0):
+        self.omega = omega
+
+    @jaxtyped(typechecker=typechecked)
     def __call__(
         self, weight_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
     ) -> Float[torch.Tensor, "..."]:
