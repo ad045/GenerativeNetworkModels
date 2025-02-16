@@ -2,14 +2,13 @@ from jaxtyping import Float, jaxtyped
 from typing import Optional, Tuple, List
 from typeguard import typechecked
 
-from optimisation_criteria import OptimisationCriterion
+from weight_criteria import OptimisationCriterion
+from generative_rules import GenerativeRule
 
 import torch
 import torch.optim as optim
 
-from generative_rules import *
 from tqdm import tqdm
-
 from dataclasses import dataclass
 
 

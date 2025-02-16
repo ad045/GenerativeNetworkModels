@@ -11,7 +11,7 @@ class GenerativeRule(ABC):
 
     @jaxtyped(typechecker=typechecked)
     def input_checks(
-        self, adjacency_matrix: Float[torch.Tensor, "num_nodes num_nodes"]
+        self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
     ):
         # Check that the adjacency matrix is binary
         assert torch.allclose(
@@ -19,40 +19,43 @@ class GenerativeRule(ABC):
             torch.where(adjacency_matrix != 0, torch.tensor(1), torch.tensor(0)),
         ), "Adjacency matrix should be binary."
 
-        # Check that the adjacency matrix is symmetric
+        # Check that each matrix in the batch is symmetric
         assert torch.allclose(
-            adjacency_matrix, adjacency_matrix.T
-        ), "Adjacency matrix should be symmetric."
+            adjacency_matrix, adjacency_matrix.transpose(-2, -1)
+        ), "Adjacency matrices should be symmetric."
 
-        # Check that the adjacency matrix has no self-connections
+        # Check that the adjacency matrices have no self-connections
+        batch_shape = adjacency_matrix.shape[:-2]
+        num_nodes = adjacency_matrix.shape[-1]
+        diagonal = torch.diagonal(adjacency_matrix, dim1=-2, dim2=-1)
         assert torch.allclose(
-            torch.diag(adjacency_matrix), torch.zeros_like(torch.diag(adjacency_matrix))
-        ), "Adjacency matrix should not have self-connections."
+            diagonal, torch.zeros(*batch_shape, num_nodes)
+        ), "Adjacency matrices should not have self-connections."
 
     @jaxtyped(typechecker=typechecked)
     def output_processing(
-        self, affinity_matrix: Float[torch.Tensor, "num_nodes num_nodes"]
+        self, affinity_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
     ):
-        # Check that the affinity matrix is symmetric
+        # Check that the affinity matrices are symmetric
         assert torch.allclose(
-            affinity_matrix, affinity_matrix.T
-        ), "Affinity matrix should be symmetric."
+            affinity_matrix, affinity_matrix.transpose(-2, -1)
+        ), "Affinity matrices should be symmetric."
 
-        # Check that the affinity matrix is non-negative
+        # Check that the affinity matrices are non-negative
         assert torch.all(
             affinity_matrix >= 0
-        ), "Affinity matrix should be non-negative."
+        ), "Affinity matrices should be non-negative."
 
-        # Remove all self-connections from the affinity matrix
-        affinity_matrix.fill_diagonal_(0)
+        # Remove all self-connections from the affinity matrices
+        diagonal_indices = torch.arange(affinity_matrix.shape[-1])
+        affinity_matrix[..., diagonal_indices, diagonal_indices] = 0
 
         return affinity_matrix
 
-    # pipeline for applying rule to adjacency matrix
     @jaxtyped(typechecker=typechecked)
     def __call__(
-        self, adjacency_matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "num_nodes num_nodes"]:
+        self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "... num_nodes num_nodes"]:
         self.input_checks(adjacency_matrix)
         affinity_matrix = self._rule(adjacency_matrix)
         affinity_matrix = self.output_processing(affinity_matrix)
@@ -61,8 +64,8 @@ class GenerativeRule(ABC):
     @abstractmethod
     @jaxtyped(typechecker=typechecked)
     def _rule(
-        self, adjacency_matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "num_nodes num_nodes"]:
+        self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "... num_nodes num_nodes"]:
         pass
 
 
@@ -73,11 +76,11 @@ class MatchingIndex(GenerativeRule):
 
     When the divisor is set to 'mean', the matching index is computed as:
     $$
-        K(u,v) = \\frac{ | N(u) \cap N(v) | }{ ( |N(u) - \{v\}| + |N(v) - \{u\}| ) /2 }
+        K(u,v) = \\frac{ | N(u) \cap N(v) | }{ ( |N(u) - \{v\}| + |N(v) - \{u\}| ) /2 }.
     $$
-    when the divisor is set of 'union', the matching index is computed as:
+    When the divisor is set of 'union', the matching index is computed as:
     $$
-        K(u,v) = \\frac{ | N(u) \cap N(v) | }{  | N(u) \cup N(v) - \{u,v\}| )
+        K(u,v) = \\frac{ | N(u) \cap N(v) | }{  | N(u) \cup N(v) - \{u,v\}| }.
     $$
     When $N(u) - \{v\}$ and $N(v) - \{u\}$ are both empty the matching index is zero.
     """
@@ -99,8 +102,8 @@ class MatchingIndex(GenerativeRule):
 
     @jaxtyped(typechecker=typechecked)
     def _rule(
-        self, adjacency_matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "num_nodes num_nodes"]:
+        self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "... num_nodes num_nodes"]:
         if self.divisor == "mean":
             denominator = self._mean_divisor(adjacency_matrix)
         elif self.divisor == "union":
@@ -109,36 +112,38 @@ class MatchingIndex(GenerativeRule):
             raise ValueError(
                 f"Divisor must be one of 'mean' or 'union'. Divisor {self.divisor} not supported."
             )
-        intersection = adjacency_matrix.T @ adjacency_matrix
 
-        # apply normalization, get matching index, remove self-connections
+        intersection = torch.matmul(
+            adjacency_matrix.transpose(-2, -1), adjacency_matrix
+        )
+
         matching_indices = intersection / denominator
         return matching_indices
 
     @jaxtyped(typechecker=typechecked)
     def _mean_divisor(
-        self, adjacency_matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "num_nodes num_nodes"]:
-        node_degrees = adjacency_matrix.sum(dim=0)
+        self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "... num_nodes num_nodes"]:
+        node_degrees = adjacency_matrix.sum(dim=-1)
         denominator = (
-            node_degrees.unsqueeze(0)
-            + node_degrees.unsqueeze(1)
+            node_degrees.unsqueeze(-2)
+            + node_degrees.unsqueeze(-1)
             - adjacency_matrix
-            - adjacency_matrix.T
+            - adjacency_matrix.transpose(-2, -1)
         ) / 2
         denominator[denominator == 0] = 1
         return denominator
 
     @jaxtyped(typechecker=typechecked)
     def _union_divisor(
-        self, adjacency_matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "num_nodes num_nodes"]:
+        self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "... num_nodes num_nodes"]:
         denominator = (
-            torch.max(adjacency_matrix.unsqueeze(1), adjacency_matrix.unsqueeze(2)).sum(
-                dim=0
-            )
+            torch.max(
+                adjacency_matrix.unsqueeze(-2), adjacency_matrix.unsqueeze(-3)
+            ).sum(dim=-1)
             - adjacency_matrix
-            - adjacency_matrix.T
+            - adjacency_matrix.transpose(-2, -1)
         )
         denominator[denominator == 0] = 1
         return denominator
@@ -156,10 +161,10 @@ class Neighbours(GenerativeRule):
     """
 
     def _rule(
-        self, adjacency_matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "num_nodes num_nodes"]:
-        num_nodes = adjacency_matrix.shape[0]
-        return (adjacency_matrix @ adjacency_matrix) / num_nodes
+        self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "... num_nodes num_nodes"]:
+        num_nodes = adjacency_matrix.shape[-1]
+        return torch.matmul(adjacency_matrix, adjacency_matrix) / num_nodes
 
 
 class ClusteringRule(GenerativeRule, ABC):
@@ -177,18 +182,21 @@ class ClusteringRule(GenerativeRule, ABC):
 
     @jaxtyped
     def _clustering_coefficients(
-        self, adjacency_matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "num_nodes 1"]:
-        degrees = adjacency_matrix.sum(dim=1)
-        # Compute the number of (ordered) pairs of neighbors for each node
+        self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "... num_nodes 1"]:
+        degrees = adjacency_matrix.sum(dim=-1)
         number_of_pairs = degrees * (degrees - 1)
-        # Compute the number of (directed) triangles around each node
-        number_of_triangles = torch.diag(
-            adjacency_matrix @ adjacency_matrix @ adjacency_matrix
+
+        number_of_triangles = torch.diagonal(
+            torch.matmul(
+                torch.matmul(adjacency_matrix, adjacency_matrix), adjacency_matrix
+            ),
+            dim1=-2,
+            dim2=-1,
         )
+
         clustering_coefficients = number_of_triangles / number_of_pairs
-        clustering_coefficients.unsqueeze_(1)
-        return clustering_coefficients
+        return clustering_coefficients.unsqueeze(-1)
 
 
 class ClusteringAverage(ClusteringRule):
@@ -202,12 +210,12 @@ class ClusteringAverage(ClusteringRule):
 
     @jaxtyped(typechecker=typechecked)
     def _rule(
-        self, adjacency_matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "num_nodes num_nodes"]:
-        clustering_coefficents = self._clustering_coefficients(
-            adjacency_matrix
-        )  # This has shape (num_nodes, 1)
-        clustering_avg = (clustering_coefficents + clustering_coefficents.T) / 2
+        self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "... num_nodes num_nodes"]:
+        clustering_coefficients = self._clustering_coefficients(adjacency_matrix)
+        clustering_avg = (
+            clustering_coefficients + clustering_coefficients.transpose(-2, -1)
+        ) / 2
         return clustering_avg
 
 
@@ -222,10 +230,12 @@ class ClusteringDifference(ClusteringRule):
 
     @jaxtyped(typechecker=typechecked)
     def _rule(
-        self, adjacency_matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "num_nodes num_nodes"]:
-        clustering_coefficents = self._clustering_coefficients(adjacency_matrix)
-        clustering_diff = torch.abs(clustering_coefficents - clustering_coefficents.T)
+        self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "... num_nodes num_nodes"]:
+        clustering_coefficients = self._clustering_coefficients(adjacency_matrix)
+        clustering_diff = torch.abs(
+            clustering_coefficients - clustering_coefficients.transpose(-2, -1)
+        )
         return clustering_diff
 
 
@@ -240,10 +250,12 @@ class ClusteringMax(ClusteringRule):
 
     @jaxtyped(typechecker=typechecked)
     def _rule(
-        self, adjacency_matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "num_nodes num_nodes"]:
-        clustering_coefficents = self._clustering_coefficients(adjacency_matrix)
-        clustering_max = torch.max(clustering_coefficents, clustering_coefficents.T)
+        self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "... num_nodes num_nodes"]:
+        clustering_coefficients = self._clustering_coefficients(adjacency_matrix)
+        clustering_max = torch.maximum(
+            clustering_coefficients, clustering_coefficients.transpose(-2, -1)
+        )
         return clustering_max
 
 
@@ -258,10 +270,12 @@ class ClusteringMin(ClusteringRule):
 
     @jaxtyped(typechecker=typechecked)
     def _rule(
-        self, adjacency_matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "num_nodes num_nodes"]:
-        clustering_coefficents = self._clustering_coefficients(adjacency_matrix)
-        clustering_min = torch.min(clustering_coefficents, clustering_coefficents.T)
+        self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "... num_nodes num_nodes"]:
+        clustering_coefficients = self._clustering_coefficients(adjacency_matrix)
+        clustering_min = torch.minimum(
+            clustering_coefficients, clustering_coefficients.transpose(-2, -1)
+        )
         return clustering_min
 
 
@@ -276,10 +290,12 @@ class ClusteringProduct(ClusteringRule):
 
     @jaxtyped(typechecker=typechecked)
     def _rule(
-        self, adjacency_matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "num_nodes num_nodes"]:
-        clustering_coefficents = self._clustering_coefficients(adjacency_matrix)
-        clustering_product = clustering_coefficents * clustering_coefficents.T
+        self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "... num_nodes num_nodes"]:
+        clustering_coefficients = self._clustering_coefficients(adjacency_matrix)
+        clustering_product = (
+            clustering_coefficients * clustering_coefficients.transpose(-2, -1)
+        )
         return clustering_product
 
 
@@ -296,10 +312,10 @@ class DegreeRule(GenerativeRule, ABC):
 
     @jaxtyped(typechecker=typechecked)
     def _degrees(
-        self, adjacency_matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "num_nodes 1"]:
-        num_nodes = adjacency_matrix.shape[0]
-        return adjacency_matrix.sum(dim=1, keepdim=True) / num_nodes
+        self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "... num_nodes 1"]:
+        num_nodes = adjacency_matrix.shape[-1]
+        return adjacency_matrix.sum(dim=-1, keepdim=True) / num_nodes
 
 
 class DegreeAverage(DegreeRule):
@@ -313,10 +329,10 @@ class DegreeAverage(DegreeRule):
 
     @jaxtyped(typechecker=typechecked)
     def _rule(
-        self, adjacency_matrix: Float[torch.Tenosr, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "num_nodes num_nodes"]:
+        self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "... num_nodes num_nodes"]:
         degrees = self._degrees(adjacency_matrix)
-        return (degrees + degrees.T) / 2
+        return (degrees + degrees.transpose(-2, -1)) / 2
 
 
 class DegreeDifference(DegreeRule):
@@ -330,10 +346,10 @@ class DegreeDifference(DegreeRule):
 
     @jaxtyped(typechecker=typechecked)
     def _rule(
-        self, adjacency_matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "num_nodes num_nodes"]:
+        self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "... num_nodes num_nodes"]:
         degrees = self._degrees(adjacency_matrix)
-        return torch.abs(degrees - degrees.T)
+        return torch.abs(degrees - degrees.transpose(-2, -1))
 
 
 class DegreeMax(DegreeRule):
@@ -347,10 +363,10 @@ class DegreeMax(DegreeRule):
 
     @jaxtyped(typechecker=typechecked)
     def _rule(
-        self, adjacency_matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "num_nodes num_nodes"]:
+        self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "... num_nodes num_nodes"]:
         degrees = self._degrees(adjacency_matrix)
-        return torch.max(degrees, degrees.T)
+        return torch.maximum(degrees, degrees.transpose(-2, -1))
 
 
 class DegreeMin(DegreeRule):
@@ -364,10 +380,10 @@ class DegreeMin(DegreeRule):
 
     @jaxtyped(typechecker=typechecked)
     def _rule(
-        self, adjacency_matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "num_nodes num_nodes"]:
+        self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "... num_nodes num_nodes"]:
         degrees = self._degrees(adjacency_matrix)
-        return torch.min(degrees, degrees.T)
+        return torch.minimum(degrees, degrees.transpose(-2, -1))
 
 
 class DegreeProduct(DegreeRule):
@@ -381,10 +397,10 @@ class DegreeProduct(DegreeRule):
 
     @jaxtyped(typechecker=typechecked)
     def _rule(
-        self, adjacency_matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "num_nodes num_nodes"]:
+        self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "... num_nodes num_nodes"]:
         degrees = self._degrees(adjacency_matrix)
-        return degrees * degrees.T
+        return degrees * degrees.transpose(-2, -1)
 
 
 class Geometric(GenerativeRule):
@@ -398,6 +414,6 @@ class Geometric(GenerativeRule):
 
     @jaxtyped(typechecker=typechecked)
     def _rule(
-        self, adjacency_matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "num_nodes num_nodes"]:
+        self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "... num_nodes num_nodes"]:
         return torch.ones_like(adjacency_matrix)
