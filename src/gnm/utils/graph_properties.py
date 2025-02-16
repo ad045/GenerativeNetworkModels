@@ -4,9 +4,14 @@ import torch
 
 
 @jaxtyped(typechecker=typechecked)
-def node_strenghts(
+def node_strengths(
     adjacency_matrix: Float[torch.Tensor, "*batch num_nodes num_nodes"]
 ) -> Float[torch.Tensor, "*batch num_nodes"]:
+    """Computes the node strengths (or equivalently the nodal degree) for each node in the network.
+
+    Returns:
+        Vector of node strengths for each node in the network.
+    """
     return adjacency_matrix.sum(dim=-1)
 
 
@@ -14,6 +19,17 @@ def node_strenghts(
 def binary_clustering_coefficients(
     adjacency_matrix: Float[torch.Tensor, "*batch num_nodes num_nodes"]
 ) -> Float[torch.Tensor, "*batch num_nodes"]:
+    """Computes the clustering coefficients for each node in a binary network.
+
+    The clustering coefficient for a node $i$ is computed as:
+    $$
+        c(i) = \\frac{ 2t_i }{ k_i (k_i - 1) },
+    $$
+    where $t_i$ is the number of (unordered) triangles around node $i$, and $k_i$ is the degree of node $i$.
+
+    Returns:
+        The clustering coefficients for each node.
+    """
     degrees = adjacency_matrix.sum(dim=-1)
     number_of_pairs = degrees * (degrees - 1)
 
@@ -32,9 +48,7 @@ def binary_clustering_coefficients(
 def weighted_clustering_coefficients(
     weight_matrices: Float[torch.Tensor, "*batch num_nodes num_nodes"]
 ) -> Float[torch.Tensor, "*batch num_nodes"]:
-    """KS statistic comparing weighted clustering coefficient distributions between networks.
-
-    Implements the Onnela et al. (2005) definition of weighted clustering, which uses
+    """Implements the Onnela et al. (2005) definition of weighted clustering, which uses
     the geometric mean of triangle weights. For each node $i$, the clustering coefficient is:
 
     $$
@@ -86,3 +100,42 @@ def weighted_clustering_coefficients(
     clustering[mask] = triangles[mask] / denom[mask]
 
     return clustering
+
+
+@jaxtyped(typechecker=typechecked)
+def communicability(
+    weight_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
+) -> Float[torch.Tensor, "... num_nodes num_nodes"]:
+    """Communicability optimisation criterion.
+    To compute the communicability matrix, we go through the following steps:
+
+    1. Compute the diagonal node strength matrix, $S_{ii} = \sum_j W_{ij}$ (plus a small constant to prevent division by zero).
+    2. Compute the normalised weight matrix, $S^{-1/2} W S^{-1/2}$.
+    3. Compute the communicability matrix by taking the matrix exponential, $\exp( S^{-1/2} W S^{-1/2} )$.
+    """
+    # Compute the node strengths, with a small constant addition to prevent division by zero.
+    node_strengths = (
+        0.5 * (weight_matrix.sum(dim=-1) + weight_matrix.sum(dim=-2)) + 1e-6
+    )
+
+    # Create diagonal matrix for each batch element
+    batch_shape = weight_matrix.shape[:-2]
+    num_nodes = weight_matrix.shape[-1]
+    inv_sqrt_node_strengths = torch.zeros(
+        *batch_shape, num_nodes, num_nodes, device=weight_matrix.device
+    )
+
+    # Set diagonal values for each batch element
+    diag_indices = torch.arange(num_nodes)
+    inv_sqrt_node_strengths[..., diag_indices, diag_indices] = 1.0 / torch.sqrt(
+        node_strengths
+    )
+
+    # Compute the normalised weight matrix
+    normalised_weight_matrix = torch.matmul(
+        torch.matmul(inv_sqrt_node_strengths, weight_matrix), inv_sqrt_node_strengths
+    )
+
+    # Compute the communicability matrix
+    communicability_matrix = torch.matrix_exp(normalised_weight_matrix)
+    return communicability_matrix

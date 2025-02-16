@@ -11,6 +11,12 @@ from gnm.utils import binary_clustering_coefficients, ks_statistic
 class DegreeKS(KSCriterion):
     """KS statistic comparing degree distributions between networks."""
 
+    def __init__(self):
+        self.accepts = "binary"
+
+    def __str__(self) -> str:
+        return "Binary degree KS"
+
     @jaxtyped(typechecker=typechecked)
     def _get_graph_statistics(
         self, matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"]
@@ -30,6 +36,12 @@ class DegreeKS(KSCriterion):
 class ClusteringKS(KSCriterion):
     """KS statistic comparing clustering coefficient distributions between networks."""
 
+    def __init__(self):
+        self.accepts = "binary"
+
+    def __str__(self) -> str:
+        return "Binary clustering coefficient KS"
+
     @jaxtyped(typechecker=typechecked)
     def _get_graph_statistics(
         self, matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"]
@@ -48,6 +60,12 @@ class ClusteringKS(KSCriterion):
 
 class BetweennessKS(KSCriterion):
     """KS statistic comparing betweenness centrality distributions between networks."""
+
+    def __init__(self):
+        self.accepts = "binary"
+
+    def __str__(self) -> str:
+        return "Binary betweenness centrality KS"
 
     @jaxtyped(typechecker=typechecked)
     def _get_graph_statistics(
@@ -77,7 +95,11 @@ class EdgeLengthKS(EvaluationCriterion):
             distance_matrix:
                 Distance matrix of the real networks
         """
+        self.accepts = "binary"
         self.distance_matrix = distance_matrix
+
+    def __str__(self) -> str:
+        return "Binary edge length KS"
 
     @jaxtyped(typechecker=typechecked)
     def __call__(

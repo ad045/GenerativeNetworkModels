@@ -3,6 +3,8 @@ from jaxtyping import Float, jaxtyped
 from typeguard import typechecked
 from abc import ABC, abstractmethod
 
+from gnm.utils import communicability
+
 
 class OptimisationCriterion(ABC):
     """Base abstract class for optimisation criteria used in weighted generative networks.
@@ -12,51 +14,16 @@ class OptimisationCriterion(ABC):
     """
 
     @abstractmethod
+    def __str__(self) -> str:
+        pass
+
+    @abstractmethod
     @jaxtyped(typechecker=typechecked)
     def __call__(
         self, weight_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
     ) -> Float[torch.Tensor, "..."]:
         """Compute the final criterion $L(W)$ for optimisation of the network weights."""
         pass
-
-
-@jaxtyped(typechecker=typechecked)
-def compute_communicability(
-    weight_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
-) -> Float[torch.Tensor, "... num_nodes num_nodes"]:
-    """Communicability optimisation criterion.
-    To compute the communicability matrix, we go through the following steps:
-
-    1. Compute the diagonal node strength matrix, $S_{ii} = \sum_j W_{ij}$ (plus a small constant to prevent division by zero).
-    2. Compute the normalised weight matrix, $S^{-1/2} W S^{-1/2}$.
-    3. Compute the communicability matrix by taking the matrix exponential, $\exp( S^{-1/2} W S^{-1/2} )$.
-    """
-    # Compute the node strengths, with a small constant addition to prevent division by zero.
-    node_strengths = (
-        0.5 * (weight_matrix.sum(dim=-1) + weight_matrix.sum(dim=-2)) + 1e-6
-    )
-
-    # Create diagonal matrix for each batch element
-    batch_shape = weight_matrix.shape[:-2]
-    num_nodes = weight_matrix.shape[-1]
-    inv_sqrt_node_strengths = torch.zeros(
-        *batch_shape, num_nodes, num_nodes, device=weight_matrix.device
-    )
-
-    # Set diagonal values for each batch element
-    diag_indices = torch.arange(num_nodes)
-    inv_sqrt_node_strengths[..., diag_indices, diag_indices] = 1.0 / torch.sqrt(
-        node_strengths
-    )
-
-    # Compute the normalised weight matrix
-    normalised_weight_matrix = torch.matmul(
-        torch.matmul(inv_sqrt_node_strengths, weight_matrix), inv_sqrt_node_strengths
-    )
-
-    # Compute the communicability matrix
-    communicability_matrix = torch.matrix_exp(normalised_weight_matrix)
-    return communicability_matrix
 
 
 class Communicability(OptimisationCriterion):
@@ -93,11 +60,14 @@ class Communicability(OptimisationCriterion):
         """
         self.omega = omega
 
+    def __str__(self) -> str:
+        return "Communicability"
+
     @jaxtyped(typechecker=typechecked)
     def __call__(
         self, weight_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
     ) -> Float[torch.Tensor, "..."]:
-        communicability_matrix = compute_communicability(weight_matrix)
+        communicability_matrix = communicability(weight_matrix)
         tilted_communicability = torch.pow(communicability_matrix, self.omega)
         return torch.sum(tilted_communicability, dim=(-2, -1))
 
@@ -137,11 +107,14 @@ class NormalisedCommunicability(OptimisationCriterion):
         """
         self.omega = omega
 
+    def __str__(self) -> str:
+        return "Normalised communicability"
+
     @jaxtyped(typechecker=typechecked)
     def __call__(
         self, weight_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
     ) -> Float[torch.Tensor, "..."]:
-        communicability_matrix = compute_communicability(weight_matrix)
+        communicability_matrix = communicability(weight_matrix)
         tilted_communicability = torch.pow(communicability_matrix, self.omega)
         max_tilted_communicability = torch.amax(
             tilted_communicability, dim=(-2, -1), keepdim=True
@@ -189,6 +162,9 @@ class DistanceWeightedCommunicability(OptimisationCriterion):
         self.distance_matrix = distance_matrix
         self.omega = omega
 
+    def __str__(self) -> str:
+        return "Distance weighted communicability"
+
     @jaxtyped(typechecker=typechecked)
     def __call__(
         self, weight_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
@@ -204,7 +180,7 @@ class DistanceWeightedCommunicability(OptimisationCriterion):
             distance_weighted_communicability:
                 The distance-weighted communicability matrix of the network
         """
-        communicability_matrix = compute_communicability(weight_matrix)
+        communicability_matrix = communicability(weight_matrix)
         # Expand distance matrix to match batch dimensions
         expanded_distance = self.distance_matrix.expand_as(communicability_matrix)
         distance_weighted_communicability = torch.pow(
@@ -251,6 +227,9 @@ class NormalisedDistanceWeightedCommunicability(OptimisationCriterion):
         self.distance_matrix = distance_matrix
         self.omega = omega
 
+    def __str__(self) -> str:
+        return "Normalised distance weighted communicability"
+
     @jaxtyped(typechecker=typechecked)
     def __call__(
         self, weight_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
@@ -266,7 +245,7 @@ class NormalisedDistanceWeightedCommunicability(OptimisationCriterion):
             distance_weighted_communicability:
                 The distance-weighted communicability matrix of the network
         """
-        communicability_matrix = compute_communicability(weight_matrix)
+        communicability_matrix = communicability(weight_matrix)
         # Expand distance matrix to match batch dimensions
         expanded_distance = self.distance_matrix.expand_as(communicability_matrix)
         distance_weighted_communicability = torch.pow(
@@ -304,6 +283,9 @@ class WeightedDistance(OptimisationCriterion):
         self.distance_matrix = distance_matrix
         self.omega = omega
 
+    def __str__(self) -> str:
+        return "Weighted distance"
+
     @jaxtyped(typechecker=typechecked)
     def __call__(
         self, weight_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
@@ -337,6 +319,9 @@ class NormalisedWeightedDistance(OptimisationCriterion):
         self.distance_matrix = distance_matrix
         self.omega = omega
 
+    def __str__(self) -> str:
+        return "Normalised weighted distance"
+
     @jaxtyped(typechecker=typechecked)
     def __call__(
         self, weight_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
@@ -363,6 +348,9 @@ class Weight(OptimisationCriterion):
     def __init__(self, omega: float = 1.0):
         self.omega = omega
 
+    def __str__(self) -> str:
+        return "Weight"
+
     @jaxtyped(typechecker=typechecked)
     def __call__(
         self, weight_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
@@ -385,6 +373,9 @@ class NormalisedWeight(OptimisationCriterion):
 
     def __init__(self, omega: float = 1.0):
         self.omega = omega
+
+    def __str__(self) -> str:
+        return "Normalised weight"
 
     @jaxtyped(typechecker=typechecked)
     def __call__(

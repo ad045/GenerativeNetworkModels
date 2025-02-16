@@ -12,8 +12,10 @@ def ks_statistic(
     Compute KS statistics between all pairs of distributions in two batches.
 
     Args:
-        samples_1: First batch of samples
-        samples_2: Second batch of samples
+        samples_1:
+            First batch of samples
+        samples_2:
+            Second batch of samples
 
     Returns:
         KS statistics for all pairs

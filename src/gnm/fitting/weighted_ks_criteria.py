@@ -16,6 +16,9 @@ class WeightedNodeStrengthKS(KSCriterion):
     weights of all edges connected to a node.
     """
 
+    def __str__(self) -> str:
+        return "Weighted node strength KS"
+
     def __init__(self, normalise: Optional[bool] = True):
         """
         Args:
@@ -24,6 +27,7 @@ class WeightedNodeStrengthKS(KSCriterion):
         """
         super().__init__()
         self.normalise = normalise
+        self.accepts = "weighted"
 
     @jaxtyped(typechecker=typechecked)
     def _get_graph_statistics(
@@ -58,6 +62,9 @@ class WeightedBetweennessKS(KSCriterion):
     For weighted networks, path lengths are computed using the edge weights as distance.
     """
 
+    def __str__(self) -> str:
+        return "Weighted betweenness centrality KS"
+
     def __init__(self, normalise: Optional[bool] = True):
         """
         Args:
@@ -65,6 +72,7 @@ class WeightedBetweennessKS(KSCriterion):
         """
         super().__init__()
         self.normalise = normalise
+        self.accepts = "weighted"
 
     @jaxtyped(typechecker=typechecked)
     def _get_graph_statistics(
@@ -109,6 +117,12 @@ class WeightedClusteringKS(KSCriterion):
     after normalising by dividing by the maximum weight in the network.
     """
 
+    def __init__(self):
+        self.accepts = "weighted"
+
+    def __str__(self) -> str:
+        return "Weighted clustering coefficient KS"
+
     @jaxtyped(typechecker=typechecked)
     def _get_graph_statistics(
         self, matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"]
@@ -121,4 +135,5 @@ class WeightedClusteringKS(KSCriterion):
         Returns:
             torch.Tensor: Vector of weighted clustering coefficients
         """
-        return weighted_clustering_coefficients(matrices)
+        with torch.no_grad():
+            return weighted_clustering_coefficients(matrices)

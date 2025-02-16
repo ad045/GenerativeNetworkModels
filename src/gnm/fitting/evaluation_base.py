@@ -20,6 +20,11 @@ class EvaluationCriterion(ABC):
     """
 
     @abstractmethod
+    def __str__(self) -> str:
+        """Return a string representation of the criterion."""
+        pass
+
+    @abstractmethod
     @jaxtyped(typechecker=typechecked)
     def __call__(
         self,
@@ -111,6 +116,9 @@ class MaxCriteria(EvaluationCriterion):
     properties.
     """
 
+    def __str__(self) -> str:
+        return f"Maximum({', '.join(str(criterion) for criterion in self.criteria)})"
+
     def __init__(self, criteria: list[EvaluationCriterion]):
         """
         Args:
@@ -118,6 +126,10 @@ class MaxCriteria(EvaluationCriterion):
                 List of evaluation criteria to combine
         """
         self.criteria = criteria
+        self.accepts = self.criteria[0].accepts
+        assert all(
+            criterion.accepts == self.accepts for criterion in self.criteria
+        ), "All criteria must accept the same type of network"
 
     @jaxtyped(typechecker=typechecked)
     def __call__(
@@ -158,6 +170,11 @@ class MeanCriteria(EvaluationCriterion):
     average value of all criteria.
     """
 
+    def __str__(self) -> str:
+        return (
+            f"MeanCriteria({', '.join(str(criterion) for criterion in self.criteria)})"
+        )
+
     def __init__(self, criteria: list[EvaluationCriterion]):
         """
         Args:
@@ -165,6 +182,11 @@ class MeanCriteria(EvaluationCriterion):
                 List of evaluation criteria to combine
         """
         self.criteria = criteria
+        # Check that all the criteria accept the same type of network
+        self.accepts = self.criteria[0].accepts
+        assert all(
+            criterion.accepts == self.accepts for criterion in self.criteria
+        ), "All criteria must accept the same type of network"
 
     @jaxtyped(typechecker=typechecked)
     def __call__(

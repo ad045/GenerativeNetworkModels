@@ -9,6 +9,10 @@ class GenerativeRule(ABC):
     Base class for generative rules. Generative rules are used to compute the affinity factor between nodes in a graph.
     """
 
+    @abstractmethod
+    def __str__(self) -> str:
+        pass
+
     @jaxtyped(typechecker=typechecked)
     def input_checks(
         self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
@@ -100,6 +104,9 @@ class MatchingIndex(GenerativeRule):
             "union",
         ], f"Divisor must be one of 'mean' or 'union'. Recieved {self.divisor}."
 
+    def __str__(self) -> str:
+        return "Matching index"
+
     @jaxtyped(typechecker=typechecked)
     def _rule(
         self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
@@ -160,6 +167,9 @@ class Neighbours(GenerativeRule):
     where $|V|$ is the number of nodes in the graph.
     """
 
+    def __str__(self) -> str:
+        return "Neighbours"
+
     def _rule(
         self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
     ) -> Float[torch.Tensor, "... num_nodes num_nodes"]:
@@ -179,6 +189,9 @@ class ClusteringRule(GenerativeRule, ABC):
     $$
     Classes which inherit from this base class use the clustering coefficients to form the affinity factor.
     """
+
+    def __str__(self) -> str:
+        return "Clustering coefficient"
 
     @jaxtyped(typechecker=typechecked)
     def _clustering_coefficients(
@@ -208,6 +221,9 @@ class ClusteringAverage(ClusteringRule):
     $$
     """
 
+    def __str__(self) -> str:
+        return "Clustering average"
+
     @jaxtyped(typechecker=typechecked)
     def _rule(
         self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
@@ -227,6 +243,9 @@ class ClusteringDifference(ClusteringRule):
         K(u,v) = |c_u - c_v|.
     $$
     """
+
+    def __str__(self) -> str:
+        return "Clustering difference"
 
     @jaxtyped(typechecker=typechecked)
     def _rule(
@@ -248,6 +267,9 @@ class ClusteringMax(ClusteringRule):
     $$
     """
 
+    def __str__(self) -> str:
+        return "Clustering max"
+
     @jaxtyped(typechecker=typechecked)
     def _rule(
         self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
@@ -268,6 +290,9 @@ class ClusteringMin(ClusteringRule):
     $$
     """
 
+    def __str__(self) -> str:
+        return "Clustering minimum"
+
     @jaxtyped(typechecker=typechecked)
     def _rule(
         self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
@@ -287,6 +312,9 @@ class ClusteringProduct(ClusteringRule):
         K(u,v) = c_u \\times c_v.
     $$
     """
+
+    def __str__(self) -> str:
+        return "Clustering product"
 
     @jaxtyped(typechecker=typechecked)
     def _rule(
@@ -327,6 +355,9 @@ class DegreeAverage(DegreeRule):
     $$
     """
 
+    def __str__(self) -> str:
+        return "Degree average"
+
     @jaxtyped(typechecker=typechecked)
     def _rule(
         self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
@@ -343,6 +374,9 @@ class DegreeDifference(DegreeRule):
         K(u,v) = |k_u - k_v|.
     $$
     """
+
+    def __str__(self) -> str:
+        return "Degree difference"
 
     @jaxtyped(typechecker=typechecked)
     def _rule(
@@ -361,6 +395,9 @@ class DegreeMax(DegreeRule):
     $$
     """
 
+    def __str__(self) -> str:
+        return "Degree maximum"
+
     @jaxtyped(typechecker=typechecked)
     def _rule(
         self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
@@ -377,6 +414,9 @@ class DegreeMin(DegreeRule):
         K(u,v) = \\min(k_u,k_v).
     $$
     """
+
+    def __str__(self) -> str:
+        return "Degree minimum"
 
     @jaxtyped(typechecker=typechecked)
     def _rule(
@@ -395,6 +435,9 @@ class DegreeProduct(DegreeRule):
     $$
     """
 
+    def __str__(self) -> str:
+        return "Degree product"
+
     @jaxtyped(typechecker=typechecked)
     def _rule(
         self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
@@ -411,6 +454,9 @@ class Geometric(GenerativeRule):
         K(u,v) = 1.
     $$
     """
+
+    def __str__(self) -> str:
+        return "Geometric"
 
     @jaxtyped(typechecker=typechecked)
     def _rule(
