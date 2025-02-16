@@ -180,7 +180,7 @@ class ClusteringRule(GenerativeRule, ABC):
     Classes which inherit from this base class use the clustering coefficients to form the affinity factor.
     """
 
-    @jaxtyped
+    @jaxtyped(typechecker=typechecked)
     def _clustering_coefficients(
         self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
     ) -> Float[torch.Tensor, "... num_nodes 1"]:

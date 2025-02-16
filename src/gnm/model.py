@@ -210,6 +210,8 @@ class GenerativeNetworkModel:
        For more details, see (REF WeightedGenerativeParameters and weighted_update method).
 
     Attributes:
+        num_simulations (int):
+            Number of simulations to run in parallel.
         seed_adjacency_matrix (torch.Tensor):
             Initial binary adjacency matrix (num_nodes, num_nodes).
         adjacency_matrix (torch.Tensor):
@@ -257,11 +259,13 @@ class GenerativeNetworkModel:
         self,
         binary_parameters: BinaryGenerativeParameters,
         num_simulations: int,
-        seed_adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"],
+        seed_adjacency_matrix: Float[
+            torch.Tensor, "*num_simulations num_nodes num_nodes"
+        ],
         distance_matrix: Optional[Float[torch.Tensor, "num_nodes num_nodes"]] = None,
         weighted_parameters: Optional[WeightedGenerativeParameters] = None,
         seed_weight_matrix: Optional[
-            Float[torch.Tensor, "... num_nodes num_nodes"]
+            Float[torch.Tensor, "*num_simulations num_nodes num_nodes"]
         ] = None,
     ):
         """The initialisation process for the Generative Network Model:
@@ -396,7 +400,7 @@ class GenerativeNetworkModel:
         self,
         weighted_parameters: WeightedGenerativeParameters,
         seed_weight_matrix: Optional[
-            Float[torch.Tensor, "... num_nodes num_nodes"]
+            Float[torch.Tensor, "*batch num_nodes num_nodes"]
         ] = None,
     ):
         """Initialise the weight matrix and optimiser for the weighted GNM.
@@ -472,7 +476,7 @@ class GenerativeNetworkModel:
     def binary_update(
         self,
         heterochronous_matrix: Optional[
-            Float[torch.Tensor, "... num_nodes num_nodes"]
+            Float[torch.Tensor, "*num_simulations num_nodes num_nodes"]
         ] = None,
     ) -> Tuple[
         Float[torch.Tensor, "num_simulations 2"],  # added edges for each simulation
@@ -679,7 +683,7 @@ class GenerativeNetworkModel:
         heterochronous_matrix: Optional[
             Float[
                 torch.Tensor,
-                "num_binary_updates ... num_nodes num_nodes",
+                "num_binary_updates *num_simulations num_nodes num_nodes",
             ]
         ] = None,
     ) -> Tuple[

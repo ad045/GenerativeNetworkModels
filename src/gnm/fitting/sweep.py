@@ -12,6 +12,8 @@ from gnm import (
     WeightedGenerativeParameters,
     GenerativeNetworkModel,
 )
+from gnm.generative_rules import GenerativeRule
+from gnm.weight_criteria import OptimisationCriterion
 
 
 class SweepConfiguration(ABC):
@@ -96,11 +98,9 @@ class WeightedSweepParameters:
 
 
 @dataclass
-class ParameterSweep(SweepConfiguration):
+class JointParameterSweep(SweepConfiguration):
     binary: BinarySweepParameters
     weighted: WeightedSweepParameters
-    seed_adjacency_matrices: List[Float[torch.Tensor, "num_nodes num_nodes"]]
-    distance_matrices: List[Float[torch.Tensor, "num_nodes num_nodes"]]
 
     def __iter__(
         self,

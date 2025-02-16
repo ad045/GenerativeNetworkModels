@@ -6,6 +6,8 @@ from typing import Optional
 
 from .evaluation_base import KSCriterion
 
+from gnm.utils import node_strenghts, weighted_clustering_coefficients
+
 
 class WeightedNodeStrengthKS(KSCriterion):
     """KS statistic comparing node strength distributions between networks.
@@ -25,8 +27,8 @@ class WeightedNodeStrengthKS(KSCriterion):
 
     @jaxtyped(typechecker=typechecked)
     def _get_graph_statistics(
-        self, matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "num_nodes"]:
+        self, matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "num_networks num_nodes"]:
         """Compute strength for each node in the network.
 
         Args:
@@ -36,9 +38,9 @@ class WeightedNodeStrengthKS(KSCriterion):
             torch.Tensor: Vector of node strengths
         """
         if self.normalise:
-            return matrix.sum(dim=1) / matrix.max()
+            return node_strenghts(matrices / matrices.max(dim=-1, keepdim=True))
         else:
-            return matrix.sum(dim=1)
+            return node_strenghts(matrices)
 
 
 class WeightedBetweennessKS(KSCriterion):
@@ -66,26 +68,31 @@ class WeightedBetweennessKS(KSCriterion):
 
     @jaxtyped(typechecker=typechecked)
     def _get_graph_statistics(
-        self, matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "num_nodes"]:
+        self, matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "num_networks num_nodes"]:
         """Compute weighted betweenness centrality for each node in the network.
 
         Args:
-            matrix: Weight matrix of the network
+            matrices: Weight matrices of the network
 
         Returns:
-            torch.Tensor: Vector of weighted betweenness centralities
+            torch.Tensor: array of weighted betweenness centralities
         """
         if self.normalise:
-            to_graph = matrix / matrix.max()
+            to_graph = matrices / matrices.max(dim=-1, keepdim=True)
         else:
-            to_graph = matrix
+            to_graph = matrices
 
-        # Convert to networkx for weighted betweenness calculation
-        G = nx.from_numpy_array(to_graph)
-        betweenness = nx.betweenness_centrality(G, weight="weight")
-        # Convert dict to list preserving node order
-        return torch.tensor([betweenness[i] for i in range(len(betweenness))])
+        betweenness_values = []
+        for network_idx in range(to_graph.shape[0]):
+            # Convert to networkx for betweenness calculation
+            G = nx.from_numpy_array(to_graph[network_idx].detach().cpu().numpy())
+            betweenness = nx.betweenness_centrality(G, weight="weight")
+            # Convert dict to list preserving node order
+            betweenness_values.append(
+                torch.tensor([betweenness[i] for i in range(len(betweenness))])
+            )
+        return torch.stack(betweenness_values)
 
 
 class WeightedClusteringKS(KSCriterion):
@@ -104,8 +111,8 @@ class WeightedClusteringKS(KSCriterion):
 
     @jaxtyped(typechecker=typechecked)
     def _get_graph_statistics(
-        self, matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "num_nodes"]:
+        self, matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "num_networks num_nodes"]:
         """Compute weighted clustering coefficient for each node.
 
         Args:
@@ -114,14 +121,4 @@ class WeightedClusteringKS(KSCriterion):
         Returns:
             torch.Tensor: Vector of weighted clustering coefficients
         """
-        # Normalize weights by maximum weight
-        normalized_matrix = matrix / matrix.max()
-
-        # Convert to networkx graph
-        G = nx.from_numpy_array(normalized_matrix.detach().cpu().numpy())
-
-        # Compute clustering coefficients using Onnela's method
-        clustering = nx.clustering(G, weight="weight")
-
-        # Convert dict to list preserving node order
-        return torch.tensor([clustering[i] for i in range(len(clustering))])
+        return weighted_clustering_coefficients(matrices)

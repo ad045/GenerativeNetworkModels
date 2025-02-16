@@ -3,7 +3,9 @@ import networkx as nx
 import numpy as np
 from jaxtyping import Float, jaxtyped
 from typeguard import typechecked
-from .evaluation_base import KSCriterion
+from .evaluation_base import KSCriterion, EvaluationCriterion
+
+from gnm.utils import binary_clustering_coefficients, ks_statistic
 
 
 class DegreeKS(KSCriterion):
@@ -11,8 +13,8 @@ class DegreeKS(KSCriterion):
 
     @jaxtyped(typechecker=typechecked)
     def _get_graph_statistics(
-        self, matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "_"]:
+        self, matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "num_networks _"]:
         """Compute degree for each node in the network.
 
         Args:
@@ -22,7 +24,7 @@ class DegreeKS(KSCriterion):
         Returns:
             Vector of node degrees
         """
-        return matrix.sum(dim=1)
+        return matrices.sum(dim=-1)
 
 
 class ClusteringKS(KSCriterion):
@@ -30,8 +32,8 @@ class ClusteringKS(KSCriterion):
 
     @jaxtyped(typechecker=typechecked)
     def _get_graph_statistics(
-        self, matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "_"]:
+        self, matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "num_networks _"]:
         """Compute clustering coefficient for each node in the network.
 
         Args:
@@ -41,11 +43,7 @@ class ClusteringKS(KSCriterion):
         Returns:
             Vector of clustering coefficients
         """
-        # Convert to networkx for clustering calculation
-        G = nx.from_numpy_array(matrix.detach().cpu().numpy())
-        clustering = nx.clustering(G)
-        # Convert dict to list preserving node order
-        return torch.tensor([clustering[i] for i in range(len(clustering))])
+        return binary_clustering_coefficients(matrices)
 
 
 class BetweennessKS(KSCriterion):
@@ -53,48 +51,85 @@ class BetweennessKS(KSCriterion):
 
     @jaxtyped(typechecker=typechecked)
     def _get_graph_statistics(
-        self, matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "_"]:
+        self, matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "num_networks _"]:
         """Compute betweenness centrality for each node in the network.
 
         Args:
-            matrix: Adjacency matrix of the network
+            matrices: Adjacency matrix of the network
 
         Returns:
             torch.Tensor: Vector of betweenness centralities
         """
-        # Convert to networkx for betweenness calculation
-        G = nx.from_numpy_array(matrix.detach().cpu().numpy())
-        betweenness = nx.betweenness_centrality(G)
-        # Convert dict to list preserving node order
-        return torch.tensor([betweenness[i] for i in range(len(betweenness))])
+        graphs = [nx.from_numpy_array(matrix.cpu().numpy()) for matrix in matrices]
+        return torch.tensor(
+            [np.array(list(nx.betweenness_centrality(g).values())) for g in graphs]
+        )
 
 
-class EdgeLengthKS(KSCriterion):
+class EdgeLengthKS(EvaluationCriterion):
     """KS statistic comparing edge length distributions between networks."""
 
     def __init__(self, distance_matrix: Float[torch.Tensor, "num_nodes num_nodes"]):
-        """Initialize with a distance matrix.
+        """Initialise the criterion.
 
         Args:
-            distance_matrix: Matrix of distances between nodes
+            distance_matrix:
+                Distance matrix of the real networks
         """
         self.distance_matrix = distance_matrix
 
     @jaxtyped(typechecker=typechecked)
-    def _get_graph_statistics(
-        self, matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "_"]:
-        """Compute lengths of all edges present in the network.
+    def __call__(
+        self,
+        synthetic_matrices: Float[
+            torch.Tensor, "num_synthetic_networks num_nodes num_nodes"
+        ],
+        real_matrices: Float[torch.Tensor, "num_real_networks num_nodes num_nodes"],
+    ) -> Float[torch.Tensor, "num_synthetic_networks num_real_networks"]:
+        """Compute the KS statistic between edge length distributions.
 
         Args:
-            matrix: Adjacency matrix of the network
+            synthetic_matrices:
+                Batch of adjacency matrices of the synthetic networks
+            real_matrices:
+                Adjacency matrices of the real networks
 
         Returns:
-            torch.Tensor: Vector of edge lengths
+            KS statistics for all pairs of synthetic and real networks
         """
-        # Get indices where edges exist (upper triangle only to avoid duplicates)
-        upper_tri = torch.triu(matrix, diagonal=1)
-        edges = torch.where(upper_tri > 0)
-        # Return the distances for these edges as a 1D tensor
-        return self.distance_matrix[edges]
+        num_synthetic_networks = synthetic_matrices.shape[0]
+        num_real_networks = real_matrices.shape[0]
+        ks_distances = torch.zeros(
+            num_synthetic_networks, num_real_networks, dtype=torch.float32
+        )
+        synthetic_edge_lengths = []
+        real_edge_lengths = []
+        # Iterate through all pairs of synthetic and real networks
+        for i in range(num_synthetic_networks):
+            synthetic_edge_lengths.append(
+                self._get_edge_lengths(synthetic_matrices[i, :, :])
+            )
+        for j in range(num_real_networks):
+            real_edge_lengths.append(self._get_edge_lengths(real_matrices[j, :, :]))
+
+        for i in range(num_synthetic_networks):
+            for j in range(num_real_networks):
+                ks_distances[i, j] = ks_statistic(
+                    synthetic_edge_lengths, real_edge_lengths
+                )
+
+    @jaxtyped(typechecker=typechecked)
+    def _get_edge_lengths(
+        self, adjacency_matrix: Float[torch.Tensor, "num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "1 num_non_zero_edges"]:
+        """Compute edge lengths for each network.
+
+        Args:
+            matrices: Adjacency matrix of the network
+
+        Returns:
+            1D tensor of edge lengths
+        """
+        adj = torch.triu(adjacency_matrix, diagonal=1)
+        return self.distance_matrix[adj.bool()].flatten()

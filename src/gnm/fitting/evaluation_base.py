@@ -2,7 +2,8 @@ import torch
 from jaxtyping import Float, jaxtyped
 from typeguard import typechecked
 from abc import ABC, abstractmethod
-from scipy.stats import ks_2samp
+
+from gnm.utils import ks_statistic
 
 
 class EvaluationCriterion(ABC):
@@ -22,17 +23,21 @@ class EvaluationCriterion(ABC):
     @jaxtyped(typechecker=typechecked)
     def __call__(
         self,
-        synthetic_matrix: Float[torch.Tensor, "num_nodes num_nodes"],
-        real_matrix: Float[torch.Tensor, "num_nodes num_nodes"],
-    ) -> float:
+        synthetic_matrices: Float[
+            torch.Tensor, "num_synthetic_networks num_nodes num_nodes"
+        ],
+        real_matrices: Float[torch.Tensor, "num_real_networks num_nodes num_nodes"],
+    ) -> Float[torch.Tensor, "num_synthetic_networks num_real_networks"]:
         """Compute the dissimilarity between two networks.
 
         Args:
-            synthetic_matrix: Adjacency/weight matrix of the synthetic network
-            real_matrix: Adjacency/weight matrix of the real network
+            synthetic_matrices:
+                Batch of adjacency/weight matrices of the synthetic networks
+            real_matrices:
+                Adjacency/weight matrices of the real networks
 
         Returns:
-            Scalar dissimilarity value (higher values indicate greater dissimilarity)
+            Tensor of dissimilarity values (higher values indicate greater dissimilarity)
         """
         pass
 
@@ -54,36 +59,41 @@ class KSCriterion(ABC, EvaluationCriterion):
     @jaxtyped(typechecker=typechecked)
     def __call__(
         self,
-        synthetic_matrix: Float[torch.Tensor, "num_nodes num_nodes"],
-        real_matrix: Float[torch.Tensor, "num_nodes num_nodes"],
-    ) -> float:
+        synthetic_matrices: Float[
+            torch.Tensor, "num_synthetic_networks num_nodes num_nodes"
+        ],
+        real_matrices: Float[torch.Tensor, "num_real_networks num_nodes num_nodes"],
+    ) -> Float[torch.Tensor, "num_synthetic_networks num_real_networks"]:
         """Compute the KS statistic between network property distributions.
 
         Args:
-            synthetic_matrix:
-                Adjacency/weight matrix of the synthetic network
-            real_matrix:
-                Adjacency/weight matrix of the real network
+            synthetic_matrices:
+                Batch of adjacency/weight matrices of the synthetic networks
+            real_matrices:
+                Adjacency/weight matrices of the real networks
 
         Returns:
-            KS statistic comparing the property distributions
+            KS statistics for all pairs of synthetic and real networks
         """
-        synthetic_values = self._get_graph_statistics(synthetic_matrix)
-        real_values = self._get_graph_statistics(real_matrix)
-        return ks_2samp(synthetic_values, real_values).statistic
+        # Compute network property values for each network
+        synthetic_statistics = self._get_graph_statistics(synthetic_matrices)
+        real_statistics = self._get_graph_statistics(real_matrices)
+
+        # Compute KS statistics between all pairs of distributions
+        return ks_statistic(synthetic_statistics, real_statistics)
 
     @abstractmethod
     @jaxtyped(typechecker=typechecked)
     def _get_graph_statistics(
-        self, matrix: Float[torch.Tensor, "num_nodes num_nodes"]
-    ) -> Float[torch.Tensor, "_"]:
+        self, matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "num_networks _"]:
         """Compute network properties for KS comparison.
 
         Must be implemented by subclasses to define which network property
         to use in the KS test.
 
         Args:
-            matrix: Adjacency/weight matrix of the network
+            matrices: Adjacency/weight matrix of the network
 
         Returns:
             1D tensor of network property values
@@ -112,9 +122,11 @@ class MaxCriteria(EvaluationCriterion):
     @jaxtyped(typechecker=typechecked)
     def __call__(
         self,
-        synthetic_matrix: Float[torch.Tensor, "num_nodes num_nodes"],
-        real_matrix: Float[torch.Tensor, "num_nodes num_nodes"],
-    ) -> float:
+        synthetic_matrices: Float[
+            torch.Tensor, "num_synthetic_networks num_nodes num_nodes"
+        ],
+        real_matrices: Float[torch.Tensor, "num_real_networks num_nodes num_nodes"],
+    ) -> Float[torch.Tensor, "num_synthetic_networks num_real_networks"]:
         """Compute maximum dissimilarity across all criteria.
 
         Args:
@@ -126,6 +138,56 @@ class MaxCriteria(EvaluationCriterion):
         Returns:
             Maximum dissimilarity value across all criteria
         """
-        return max(
-            criterion(synthetic_matrix, real_matrix) for criterion in self.criteria
+        return (
+            torch.stack(
+                [
+                    criterion(synthetic_matrices, real_matrices)
+                    for criterion in self.criteria
+                ]
+            )
+            .max(dim=0)
+            .values
         )
+
+
+class MeanCriteria(EvaluationCriterion):
+    """Combines multiple evaluation criteria by taking their mean value.
+
+    This class enables the evaluation of networks using multiple criteria
+    simultaneously, where the overall dissimilarity is determined by the
+    average value of all criteria.
+    """
+
+    def __init__(self, criteria: list[EvaluationCriterion]):
+        """
+        Args:
+            criteria:
+                List of evaluation criteria to combine
+        """
+        self.criteria = criteria
+
+    @jaxtyped(typechecker=typechecked)
+    def __call__(
+        self,
+        synthetic_matrices: Float[
+            torch.Tensor, "num_synthetic_networks num_nodes num_nodes"
+        ],
+        real_matrices: Float[torch.Tensor, "num_real_networks num_nodes num_nodes"],
+    ) -> Float[torch.Tensor, "num_synthetic_networks num_real_networks"]:
+        """Compute mean dissimilarity across all criteria.
+
+        Args:
+            synthetic_matrix:
+                Adjacency/weight matrix of the synthetic network
+            real_matrix:
+                Adjacency/weight matrix of the real network
+
+        Returns:
+            Mean dissimilarity value across all criteria
+        """
+        return torch.stack(
+            [
+                criterion(synthetic_matrices, real_matrices)
+                for criterion in self.criteria
+            ]
+        ).mean(dim=0)
