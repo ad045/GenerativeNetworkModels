@@ -6,6 +6,7 @@ from .graph_properties import (
     communicability,
     binary_betweenness_centrality,
 )
+from .checks import binary_checks, weighted_checks
 
 __all__ = [
     "ks_statistic",
@@ -14,4 +15,6 @@ __all__ = [
     "weighted_clustering_coefficients",
     "communicability",
     "binary_betweenness_centrality",
+    "binary_checks",
+    "weighted_checks",
 ]

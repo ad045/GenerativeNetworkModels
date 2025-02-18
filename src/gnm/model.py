@@ -1,5 +1,5 @@
 from jaxtyping import Float, jaxtyped
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, Union, Any
 from typeguard import typechecked
 
 from weight_criteria import OptimisationCriterion
@@ -113,6 +113,20 @@ class BinaryGenerativeParameters:
                 f"Matching relationship type '{self.heterochronicity_relationship_type}' is not supported for the binary generative network model."
             )
 
+    def __dict__(self) -> dict[str, Any]:
+        return {
+            "eta": self.eta,
+            "gamma": self.gamma,
+            "lambdah": self.lambdah,
+            "distance_relationship_type": self.distance_relationship_type,
+            "preferential_relationship_type": self.preferential_relationship_type,
+            "heterochronicity_relationship_type": self.heterochronicity_relationship_type,
+            "generative_rule": str(self.generative_rule),
+            "prob_offset": self.prob_offset,
+            "binary_updates_per_iteration": self.binary_updates_per_iteration,
+            "num_iterations": self.num_iterations,
+        }
+
 
 @dataclass
 class WeightedGenerativeParameters:
@@ -191,6 +205,17 @@ class WeightedGenerativeParameters:
     maximise_criterion: bool = False
     weighted_updates_per_iteration: int = 1
 
+    def __dict__(self) -> dict[str, Any]:
+        return {
+            "alpha": self.alpha,
+            "optimisation_criterion": str(self.optimisation_criterion),
+            "optimisation_normalisation": self.optimisation_normalisation,
+            "weight_lower_bound": self.weight_lower_bound,
+            "weight_upper_bound": self.weight_upper_bound,
+            "maximise_criterion": self.maximise_criterion,
+            "weighted_updates_per_iteration": self.weighted_updates_per_iteration,
+        }
+
 
 class GenerativeNetworkModel:
     """A class implementing both binary and weighted Generative Network Models (GNM).
@@ -259,13 +284,17 @@ class GenerativeNetworkModel:
         self,
         binary_parameters: BinaryGenerativeParameters,
         num_simulations: int,
-        seed_adjacency_matrix: Float[
-            torch.Tensor, "*num_simulations num_nodes num_nodes"
+        seed_adjacency_matrix: Union[
+            Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
+            Float[torch.Tensor, "num_nodes num_nodes"],
         ],
         distance_matrix: Optional[Float[torch.Tensor, "num_nodes num_nodes"]] = None,
         weighted_parameters: Optional[WeightedGenerativeParameters] = None,
         seed_weight_matrix: Optional[
-            Float[torch.Tensor, "*num_simulations num_nodes num_nodes"]
+            Union[
+                Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
+                Float[torch.Tensor, "num_nodes num_nodes"],
+            ],
         ] = None,
     ):
         """The initialisation process for the Generative Network Model:
@@ -400,7 +429,10 @@ class GenerativeNetworkModel:
         self,
         weighted_parameters: WeightedGenerativeParameters,
         seed_weight_matrix: Optional[
-            Float[torch.Tensor, "*batch num_nodes num_nodes"]
+            Union[
+                Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
+                Float[torch.Tensor, "num_nodes num_nodes"],
+            ],
         ] = None,
     ):
         """Initialise the weight matrix and optimiser for the weighted GNM.
@@ -476,7 +508,10 @@ class GenerativeNetworkModel:
     def binary_update(
         self,
         heterochronous_matrix: Optional[
-            Float[torch.Tensor, "*num_simulations num_nodes num_nodes"]
+            Union[
+                Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
+                Float[torch.Tensor, "num_nodes num_nodes"],
+            ],
         ] = None,
     ) -> Tuple[
         Float[torch.Tensor, "num_simulations 2"],  # added edges for each simulation
@@ -680,16 +715,16 @@ class GenerativeNetworkModel:
     @jaxtyped(typechecker=typechecked)
     def run_model(
         self,
-        heterochronous_matrix: Optional[
+        heterochronous_matrix: Union[
             Float[
-                torch.Tensor,
-                "num_binary_updates *num_simulations num_nodes num_nodes",
-            ]
+                torch.Tensor, "num_binary_updates num_simulations num_nodes num_nodes"
+            ],
+            Float[torch.Tensor, "num_binary_updates num_nodes num_nodes"],
         ] = None,
     ) -> Tuple[
-        List[
-            Float[torch.Tensor, "num_simulations 2"]
-        ],  # List of added edges for each update
+        Float[
+            torch.Tensor, "num_binary_updates num_simulations 2"
+        ],  # added edges for each update
         Float[
             torch.Tensor,
             "num_binary_updates num_simulations num_nodes num_nodes",
@@ -697,7 +732,7 @@ class GenerativeNetworkModel:
         Optional[
             Float[
                 torch.Tensor,
-                "num_weighted_updates num_simulations num_nodes num_nodes",
+                "num_weight_updates num_simulations num_nodes num_nodes",
             ]  # Weight snapshots
         ],
     ]:

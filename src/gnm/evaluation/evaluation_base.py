@@ -5,6 +5,8 @@ from abc import ABC, abstractmethod
 
 from gnm.utils import ks_statistic
 
+from gnm.utils import binary_checks, weighted_checks
+
 
 class EvaluationCriterion(ABC):
     """Base abstract class for network evaluation criteria.
@@ -24,7 +26,6 @@ class EvaluationCriterion(ABC):
         """Return a string representation of the criterion."""
         pass
 
-    @abstractmethod
     @jaxtyped(typechecker=typechecked)
     def __call__(
         self,
@@ -44,10 +45,92 @@ class EvaluationCriterion(ABC):
         Returns:
             Tensor of dissimilarity values (higher values indicate greater dissimilarity)
         """
+        self._pre_call(synthetic_matrices)
+        self._pre_call(real_matrices)
+        return self._evaluate(synthetic_matrices, real_matrices)
+
+    @abstractmethod
+    @jaxtyped(typechecker=typechecked)
+    def _pre_call(
+        self, matrices: Float[torch.Tensor, "num_network num_nodes num_nodes"]
+    ):
+        """Perform checks on matrices before they are evaluated.
+
+        Args:
+            matrices:
+                Adjacency/weight matrices of the network
+        """
+        pass
+
+    @abstractmethod
+    @jaxtyped(typechecker=typechecked)
+    def _evaluate(
+        self,
+        synthetic_matrices: Float[
+            torch.Tensor, "num_synthetic_networks num_nodes num_nodes"
+        ],
+        real_matrices: Float[torch.Tensor, "num_real_networks num_nodes num_nodes"],
+    ) -> Float[torch.Tensor, "num_synthetic_networks num_real_networks"]:
         pass
 
 
-class KSCriterion(ABC, EvaluationCriterion):
+class BinaryEvaluationCriterion(EvaluationCriterion, ABC):
+    def __init__(self):
+        self.accepts = "binary"
+
+    @jaxtyped(typechecker=typechecked)
+    def _pre_call(
+        self, matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"]
+    ):
+        """Perform checks on matrices before they are evaluated.
+
+        Args:
+            matrices:
+                Binary adjacency matrices
+        """
+        binary_checks(matrices)
+
+
+class WeightedEvaluationCriterion(EvaluationCriterion, ABC):
+    def __init__(self):
+        self.accepts = "weighted"
+
+    @jaxtyped(typechecker=typechecked)
+    def _pre_call(
+        self, matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"]
+    ):
+        """Perform checks on matrices before they are evaluated.
+
+        Args:
+            matrices:
+                Weighted adjacency matrices
+        """
+        weighted_checks(matrices)
+
+
+class WeightedEvaluation(EvaluationCriterion, ABC):
+    def __init__(self):
+        self.accepts = "weighted"
+
+    def _pre_call(
+        self, matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"]
+    ):
+        """Perform checks on matrices before they are evaluated.
+
+        Args:
+            matrices:
+                Weighted adjacency matrices
+        """
+        # check that the matrices are non-negative:
+        assert torch.all(matrices >= 0), "Matrices must be non-negative"
+
+        # Check that the matrices are symmetric:
+        assert torch.allclose(
+            matrices, matrices.transpose(-1, -2)
+        ), "Matrices must be symmetric"
+
+
+class KSCriterion(EvaluationCriterion, ABC):
     """Base class for Kolmogorov-Smirnov (KS) test based network evaluation.
 
     This class implements network comparison using the KS test statistic between
@@ -62,7 +145,7 @@ class KSCriterion(ABC, EvaluationCriterion):
     """
 
     @jaxtyped(typechecker=typechecked)
-    def __call__(
+    def _evaluate(
         self,
         synthetic_matrices: Float[
             torch.Tensor, "num_synthetic_networks num_nodes num_nodes"
@@ -106,7 +189,7 @@ class KSCriterion(ABC, EvaluationCriterion):
         pass
 
 
-class CorrelationCriterion(ABC, EvaluationCriterion):
+class CorrelationCriterion(EvaluationCriterion, ABC):
     """Base class for correlation-based network evaluation criteria.
 
     This class implements network comparison using correlation coefficients
@@ -129,7 +212,7 @@ class CorrelationCriterion(ABC, EvaluationCriterion):
         self.smoothing_matrix = smoothing_matrix
 
     @jaxtyped(typechecker=typechecked)
-    def __call__(
+    def _evaluate(
         self,
         synthetic_matrices: Float[
             torch.Tensor, "num_synthetic_networks num_nodes num_nodes"
@@ -203,25 +286,14 @@ class CorrelationCriterion(ABC, EvaluationCriterion):
         pass
 
 
-class MaxCriteria(EvaluationCriterion):
-    """Combines multiple evaluation criteria by taking their maximum value.
-
-    This class enables the evaluation of networks using multiple criteria
-    simultaneously, where the overall dissimilarity is determined by the
-    worst-performing (maximum) criterion. This approach ensures that the
-    synthetic network must match the real network well across all specified
-    properties.
-    """
-
-    def __str__(self) -> str:
-        return f"Maximum({', '.join(str(criterion) for criterion in self.criteria)})"
-
+class CompositeCriterion(EvaluationCriterion, ABC):
     def __init__(self, criteria: list[EvaluationCriterion]):
         """
         Args:
             criteria:
                 List of evaluation criteria to combine
         """
+        assert len(criteria) > 0, "Must provide at least one criterion"
         self.criteria = criteria
         self.accepts = self.criteria[0].accepts
         assert all(
@@ -229,142 +301,7 @@ class MaxCriteria(EvaluationCriterion):
         ), "All criteria must accept the same type of network"
 
     @jaxtyped(typechecker=typechecked)
-    def __call__(
-        self,
-        synthetic_matrices: Float[
-            torch.Tensor, "num_synthetic_networks num_nodes num_nodes"
-        ],
-        real_matrices: Float[torch.Tensor, "num_real_networks num_nodes num_nodes"],
-    ) -> Float[torch.Tensor, "num_synthetic_networks num_real_networks"]:
-        """Compute maximum dissimilarity across all criteria.
-
-        Args:
-            synthetic_matrix:
-                Adjacency/weight matrix of the synthetic network
-            real_matrix:
-                Adjacency/weight matrix of the real network
-
-        Returns:
-            Maximum dissimilarity value across all criteria
-        """
-        return (
-            torch.stack(
-                [
-                    criterion(synthetic_matrices, real_matrices)
-                    for criterion in self.criteria
-                ]
-            )
-            .max(dim=0)
-            .values
-        )
-
-
-class MeanCriteria(EvaluationCriterion):
-    """Combines multiple evaluation criteria by taking their mean value.
-
-    This class enables the evaluation of networks using multiple criteria
-    simultaneously, where the overall dissimilarity is determined by the
-    average value of all criteria.
-    """
-
-    def __str__(self) -> str:
-        return (
-            f"MeanCriteria({', '.join(str(criterion) for criterion in self.criteria)})"
-        )
-
-    def __init__(self, criteria: list[EvaluationCriterion]):
-        """
-        Args:
-            criteria:
-                List of evaluation criteria to combine
-        """
-        self.criteria = criteria
-        # Check that all the criteria accept the same type of network
-        self.accepts = self.criteria[0].accepts
-        assert all(
-            criterion.accepts == self.accepts for criterion in self.criteria
-        ), "All criteria must accept the same type of network"
-
-    @jaxtyped(typechecker=typechecked)
-    def __call__(
-        self,
-        synthetic_matrices: Float[
-            torch.Tensor, "num_synthetic_networks num_nodes num_nodes"
-        ],
-        real_matrices: Float[torch.Tensor, "num_real_networks num_nodes num_nodes"],
-    ) -> Float[torch.Tensor, "num_synthetic_networks num_real_networks"]:
-        """Compute mean dissimilarity across all criteria.
-
-        Args:
-            synthetic_matrix:
-                Adjacency/weight matrix of the synthetic network
-            real_matrix:
-                Adjacency/weight matrix of the real network
-
-        Returns:
-            Mean dissimilarity value across all criteria
-        """
-        return torch.stack(
-            [
-                criterion(synthetic_matrices, real_matrices)
-                for criterion in self.criteria
-            ]
-        ).mean(dim=0)
-
-
-class WeightedSumCriteria(EvaluationCriterion):
-    """Combines multiple evaluation criteria by taking their weighted sum.
-
-    This class enables the evaluation of networks using multiple criteria
-    """
-
-    def __init__(self, criteria: list[EvaluationCriterion], weights: list[float]):
-        """
-        Args:
-            criteria:
-                List of evaluation criteria to combine
-            weights:
-                List of weights for each criterion
-        """
-        self.criteria = criteria
-        self.weights = weights
-        self.accepts = self.criteria[0].accepts
-        assert all(
-            criterion.accepts == self.accepts for criterion in self.criteria
-        ), "All criteria must accept the same type of network"
-        assert len(self.criteria) == len(
-            self.weights
-        ), "Number of criteria must match number of weights"
-
-    def __str__(self) -> str:
-        criteria_str = ", ".join(
-            f"{str(criterion)} (weight={weight})"
-            for criterion, weight in zip(self.criteria, self.weights)
-        )
-        return f"WeightedSumCriteria({criteria_str})"
-
-    @jaxtyped(typechecker=typechecked)
-    def __call__(
-        self,
-        synthetic_matrices: Float[
-            torch.Tensor, "num_synthetic_networks num_nodes num_nodes"
-        ],
-        real_matrices: Float[torch.Tensor, "num_real_networks num_nodes num_nodes"],
-    ) -> Float[torch.Tensor, "num_synthetic_networks num_real_networks"]:
-        """Compute weighted sum of the evaluation criteria.
-
-        Args:
-            synthetic_matrix:
-                Adjacency/weight matrix of the synthetic network
-            real_matrix:
-                Adjacency/weight matrix of the real network
-
-        Returns:
-            Weighted sum of evaluation criteria
-        """
-        return torch.stack(
-            [
-                weight * criterion(synthetic_matrices, real_matrices)
-                for criterion, weight in zip(self.criteria, self.weights)
-            ]
-        ).sum(dim=0)
+    def _pre_call(
+        self, matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"]
+    ):
+        self.criteria[0]._pre_call(matrices)

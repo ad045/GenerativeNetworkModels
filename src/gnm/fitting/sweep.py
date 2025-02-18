@@ -1,11 +1,15 @@
-from .evaluation_base import EvaluationCriterion
+from gnm.evaluation import (
+    BinaryEvaluationCriterion,
+    WeightedEvaluationCriterion,
+)
 import torch
-from typing import List, Iterator, Optional, Any
+from typing import List, Iterator, Optional, Any, Dict, Union
 from itertools import product
 from jaxtyping import Float, jaxtyped
 from typeguard import typechecked
 from dataclasses import dataclass
-from abc import ABC, abstractmethod
+
+import wandb
 
 from gnm import (
     BinaryGenerativeParameters,
@@ -14,6 +18,7 @@ from gnm import (
 )
 from gnm.generative_rules import GenerativeRule
 from gnm.weight_criteria import OptimisationCriterion
+from gnm.utils import binary_checks, weighted_checks
 
 
 @dataclass
@@ -92,20 +97,66 @@ class WeightedSweepParameters:
 
 
 @dataclass
+class RunConfig:
+    binary_parameters: BinaryGenerativeParameters
+    num_simulations: int
+    seed_adjacency_matrix: Optional[
+        Union[
+            Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
+            Float[torch.Tensor, "num_nodes num_nodes"],
+        ]
+    ]
+    distance_matrix: Optional[Float[torch.Tensor, "num_nodes num_nodes"]]
+    weighted_parameters: Optional[WeightedGenerativeParameters]
+    seed_weight_matrix: Optional[
+        Union[
+            Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
+            Float[torch.Tensor, "num_nodes num_nodes"],
+        ]
+    ]
+    heterochronous_matrix: Optional[
+        Union[
+            Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
+            Float[torch.Tensor, "num_nodes num_nodes"],
+        ]
+    ]
+
+
+@dataclass
 class SweepConfig:
     binary_sweep_parameters: BinarySweepParameters
     num_simulations: int
     seed_adjacency_matrix: Optional[
-        List[Float[torch.Tensor, "... num_nodes num_nodes"]]
+        List[
+            Union[
+                Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
+                Float[torch.Tensor, "num_nodes num_nodes"],
+            ]
+        ]
     ] = None
     distance_matrix: Optional[List[Float[torch.Tensor, "num_nodes num_nodes"]]] = None
     weighted_sweep_parameters: Optional[WeightedSweepParameters] = None
-    seed_weight_matrix: Optional[List[Float[torch.Tensor, "... num_nodes num_nodes"]]]
+    seed_weight_matrix: Optional[
+        List[
+            Union[
+                Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
+                Float[torch.Tensor, "num_nodes num_nodes"],
+            ]
+        ]
+    ]
     heterochronous_matrix: Optional[
-        List[Float[torch.Tensor, "... num_nodes num_nodes"]]
+        List[
+            Union[
+                Float[
+                    torch.Tensor,
+                    "num_binary_updates num_simulations num_nodes num_nodes",
+                ],
+                Float[torch.Tensor, "num_binary_updates num_nodes num_nodes"],
+            ]
+        ]
     ] = None
 
-    def __iter__(self) -> Iterator[dict[str, Any]]:
+    def __iter__(self) -> Iterator[RunConfig]:
         """Creates an iterator over all combinations of run parameters.
         Yields pairs of parameter objects representing every possible combination
         of parameters
@@ -171,27 +222,27 @@ class SweepConfig:
 
 
 @dataclass
-class RunConfig:
-    binary_parameters: BinaryGenerativeParameters
-    num_simulations: int
-    seed_adjacency_matrix: Optional[Float[torch.Tensor, "... num_nodes num_nodes"]]
-    distance_matrix: Optional[Float[torch.Tensor, "num_nodes num_nodes"]]
-    weighted_parameters: Optional[WeightedGenerativeParameters]
-    seed_weight_matrix: Optional[Float[torch.Tensor, "... num_nodes num_nodes"]]
-    heterochronous_matrix: Optional[Float[torch.Tensor, "... num_nodes num_nodes"]]
-
-
-@dataclass
 class Results:
-    added_edges: List[Float[torch.Tensor, "... num_nodes num_nodes"]]
-    adjacency_snapshots: List[Float[torch.Tensor, "... num_nodes num_nodes"]]
-    weight_snapshots: List[Float[torch.Tensor, "... num_nodes num_nodes"]]
+    added_edges: Float[torch.Tensor, "num_binary_updates num_simulations 2"]
+    adjacency_snapshots: Float[
+        torch.Tensor, "num_binary_updates num_simulations num_nodes num_nodes"
+    ]
+    weight_snapshots: Optional[
+        Float[torch.Tensor, "num_weight_updates num_simulations num_nodes num_nodes"]
+    ]
+    binary_evaluations: Dict[
+        str, Float[torch.Tensor, "num_real_binary_networks num_simulations"]
+    ]
+    weighted_evaluations: Dict[
+        str, Float[torch.Tensor, "num_real_weighted_networks num_simulations"]
+    ]
 
 
 @jaxtyped(typechecker=typechecked)
-def perform_sweep(
-    sweep_config: SweepConfig,
-    evaluations: List[EvaluationCriterion],
+def perform_run(
+    run_config: RunConfig,
+    binary_evaluations: Optional[List[BinaryEvaluationCriterion]],
+    weighted_evaluations: Optional[List[WeightedEvaluationCriterion]],
     real_binary_matrices: Optional[
         Float[torch.Tensor, "num_real_binary_networks num_nodes num_nodes"]
     ] = None,
@@ -199,7 +250,96 @@ def perform_sweep(
         Float[torch.Tensor, "num_real_weighted_networks num_nodes num_nodes"]
     ] = None,
     wandb_logging: bool = False,
-):
+) -> Dict[str, Any]:
+    """Perform a single run of the generative network model.
+
+    Args:
+        run_config:
+            Configuration for the run
+        binary_evaluations:
+            List of binary evaluation criteria to use for comparing synthetic and real networks
+        weighted_evaluations:
+            List of weighted evaluation criteria to use for comparing synthetic and real networks
+        real_binary_matrices:
+            Real binary networks to compare synthetic networks against. Defaults to None
+        real_weighted_matrices:
+            Real weighted networks to compare synthetic networks against. Defaults to None
+        wandb_logging:
+            Whether or not to use wandb to log the runs. Defaults to False.
+
+    Returns:
+        Dictionary with keys "run_config" and "results" containing the run configuration and results
+    """
+    if real_binary_matrices is not None:
+        binary_checks(real_binary_matrices)
+    if real_weighted_matrices is not None:
+        weighted_checks(real_weighted_matrices)
+
+    model = GenerativeNetworkModel(
+        binary_parmeters=run_config.binary_parameters,
+        num_simulations=run_config.num_simulations,
+        seed_adjacency_matrix=run_config.seed_adjacency_matrix,
+        distance_matrix=run_config.distance_matrix,
+        weighted_parameters=run_config.weighted_parameters,
+        seed_weight_matrix=run_config.seed_weight_matrix,
+    )
+
+    added_edges, adjacency_snapshots, weight_snapshots = model.run_model(
+        heterochronous_matrix=run_config.heterochronous_matrix
+    )
+
+    if binary_evaluations is not None and real_binary_matrices is not None:
+        synthetic_adjacency_matrices = model.adjacency_matrix
+        binary_evaluations_results = {
+            str(evaluation): evaluation(
+                synthetic_adjacency_matrices,
+                real_binary_matrices,
+            )
+            for evaluation in binary_evaluations
+        }
+    else:
+        binary_evaluations_results = {}
+
+    if (
+        weighted_evaluations is not None
+        and real_weighted_matrices is not None
+        and run_config.weighted_parameters is not None
+    ):
+        synthetic_weight_matrices = model.weight_matrix
+        weighted_evaluations_results = {
+            str(evaluation): evaluation(
+                synthetic_weight_matrices,
+                real_weighted_matrices,
+            )
+            for evaluation in weighted_evaluations
+        }
+    else:
+        weighted_evaluations_results = {}
+
+    results = Results(
+        added_edges=added_edges,
+        adjacency_snapshots=adjacency_snapshots,
+        weight_snapshots=weight_snapshots,
+        binary_evaluations=binary_evaluations_results,
+        weighted_evaluations=weighted_evaluations_results,
+    )
+
+    return {"run_config": run_config, "results": results}
+
+
+@jaxtyped(typechecker=typechecked)
+def perform_sweep(
+    sweep_config: SweepConfig,
+    binary_evaluations: Optional[List[BinaryEvaluationCriterion]],
+    weighted_evaluations: Optional[List[WeightedEvaluationCriterion]],
+    real_binary_matrices: Optional[
+        Float[torch.Tensor, "num_real_binary_networks num_nodes num_nodes"]
+    ] = None,
+    real_weighted_matrices: Optional[
+        Float[torch.Tensor, "num_real_weighted_networks num_nodes num_nodes"]
+    ] = None,
+    wandb_logging: bool = False,
+) -> List[Dict[str, Any]]:
     """Perform a parameter sweep over the specified configuration.
 
     Args:
@@ -216,39 +356,18 @@ def perform_sweep(
         wandb_logging:
             Whether to log results to Weights & Biases
     """
+    run_results = []
 
     for run_config in sweep_config:
-
-        model = GenerativeNetworkModel(
-            binary_parmeters=run_config.binary_parameters,
-            num_simulations=run_config.num_simulations,
-            seed_adjacency_matrix=run_config.seed_adjacency_matrix,
-            distance_matrix=run_config.distance_matrix,
-            weighted_parameters=run_config.weighted_parameters,
-            seed_weight_matrix=run_config.seed_weight_matrix,
+        run_dict = perform_run(
+            run_config=run_config,
+            binary_evaluations=binary_evaluations,
+            weighted_evaluations=weighted_evaluations,
+            real_binary_matrices=real_binary_matrices,
+            real_weighted_matrices=real_weighted_matrices,
+            wandb_logging=wandb_logging,
         )
 
-        added_edges_list, adjacency_snapshots, weight_snapshots = model.run_model(
-            heterochronous_matrix=run_config.heterochronous_matrix
-        )
+        run_results.append(run_dict)
 
-        # Find the evaluation type
-        evaluation_type = evaluation_criterion.accepts
-        if evaluation_type == "binary":
-            if real_binary_matrices is None:
-                pass
-
-            real_matrix = real_binary_matrices
-            matrix = model.adjacency_matrix
-
-        elif evaluation_type == "weighted":
-            if real_weighted_matrices is None:
-                pass
-
-            real_matrix = real_weighted_matrices
-            matrix = model.weight_matrix
-        else:
-            raise ValueError(f"Unknown evaluation type: {evaluation_type}")
-
-        # Evaluate the model
-        difference_grid = evaluation_criterion(matrix, real_weighted_matrices)
+    return run_results

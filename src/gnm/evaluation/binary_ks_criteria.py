@@ -3,16 +3,17 @@ import networkx as nx
 import numpy as np
 from jaxtyping import Float, jaxtyped
 from typeguard import typechecked
-from .evaluation_base import KSCriterion, EvaluationCriterion
+from .evaluation_base import KSCriterion, BinaryEvaluationCriterion
 
 from gnm.utils import binary_clustering_coefficients, ks_statistic
 
 
-class DegreeKS(KSCriterion):
+class DegreeKS(KSCriterion, BinaryEvaluationCriterion):
     """KS statistic comparing degree distributions between networks."""
 
     def __init__(self):
-        self.accepts = "binary"
+        KSCriterion.__init__(self)
+        BinaryEvaluationCriterion.__init__(self)
 
     def __str__(self) -> str:
         return "Binary degree KS"
@@ -33,11 +34,12 @@ class DegreeKS(KSCriterion):
         return matrices.sum(dim=-1)
 
 
-class ClusteringKS(KSCriterion):
+class ClusteringKS(KSCriterion, BinaryEvaluationCriterion):
     """KS statistic comparing clustering coefficient distributions between networks."""
 
     def __init__(self):
-        self.accepts = "binary"
+        KSCriterion.__init__(self)
+        BinaryEvaluationCriterion.__init__(self)
 
     def __str__(self) -> str:
         return "Binary clustering coefficient KS"
@@ -58,11 +60,12 @@ class ClusteringKS(KSCriterion):
         return binary_clustering_coefficients(matrices)
 
 
-class BetweennessKS(KSCriterion):
+class BetweennessKS(KSCriterion, BinaryEvaluationCriterion):
     """KS statistic comparing betweenness centrality distributions between networks."""
 
     def __init__(self):
-        self.accepts = "binary"
+        KSCriterion.__init__(self)
+        BinaryEvaluationCriterion.__init__(self)
 
     def __str__(self) -> str:
         return "Binary betweenness centrality KS"
@@ -85,7 +88,7 @@ class BetweennessKS(KSCriterion):
         )
 
 
-class EdgeLengthKS(EvaluationCriterion):
+class EdgeLengthKS(BinaryEvaluationCriterion):
     """KS statistic comparing edge length distributions between networks."""
 
     def __init__(self, distance_matrix: Float[torch.Tensor, "num_nodes num_nodes"]):
@@ -95,14 +98,14 @@ class EdgeLengthKS(EvaluationCriterion):
             distance_matrix:
                 Distance matrix of the real networks
         """
-        self.accepts = "binary"
+        BinaryEvaluationCriterion.__init__(self)
         self.distance_matrix = distance_matrix
 
     def __str__(self) -> str:
         return "Binary edge length KS"
 
     @jaxtyped(typechecker=typechecked)
-    def __call__(
+    def _evaluate(
         self,
         synthetic_matrices: Float[
             torch.Tensor, "num_synthetic_networks num_nodes num_nodes"

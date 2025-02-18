@@ -8,9 +8,10 @@ See the full docs pages for the functions and classes available in each sub-pack
 
 1. [gnm.generative_rules](#gnmgenerative_rules)
 2. [gnm.weight_criteria](#gnmweight_criteria)
-3. [gnm.fitting](#gnmfitting)
-4. [gnm.defaults](#gnmdefaults)
-5. [gnm.utils](#gnmutils)
+3. [gnm.evaluation](#gnmevaluation)
+4. [gnm.fitting](#gnmfitting)
+5. [gnm.defaults](#gnmdefaults)
+6. [gnm.utils](#gnmutils)
 
 ## [model](model.md)
 
@@ -23,18 +24,19 @@ Both of these are implemented within the GenerativeNetworkModel class.
 
 ## [gnm.generative_rules](generative-rules.md)
 
-The gnm.generative_rules sub-package contains a collection of different generative rules that can be used to grow 
-and develop the generative network. 
+The gnm.generative_rules sub-package contains a collection of different generative rules that can be used to grow and develop the generative network. 
 
 ## [gnm.weight_criteria](weight-criteria.md)
 
-The gnm.weight_criteria sub-package contains a collection of optimisation criteria that can be used to update the
-weights of a weighted generative network model. 
+The gnm.weight_criteria sub-package contains a collection of optimisation criteria that can be used to update the weights of a weighted generative network model.
+
+## [gnm.evaluation](evaluation.md)
+
+The gnm.evaluation sub-package contains evaluation criteria which can be used assess the fit between a set of synthetic and real networks.  
 
 ## [gnm.fitting](fitting.md)
 
-The gnm.fitting sub-package contains classes and functions relating the fitting and evaluating 
-generative models and parameters.
+The gnm.fitting sub-package contains methods to fit parameters to a dataset and perform sweeps over parameters.
 
 ## [gnm.defaults](defaults.md)
 

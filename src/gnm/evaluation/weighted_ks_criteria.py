@@ -4,12 +4,12 @@ from typeguard import typechecked
 import networkx as nx
 from typing import Optional
 
-from .evaluation_base import KSCriterion
+from .evaluation_base import KSCriterion, WeightedEvaluationCriterion
 
 from gnm.utils import node_strenghts, weighted_clustering_coefficients
 
 
-class WeightedNodeStrengthKS(KSCriterion):
+class WeightedNodeStrengthKS(KSCriterion, WeightedEvaluationCriterion):
     """KS statistic comparing node strength distributions between networks.
 
     Node strength is the weighted equivalent of node degree - it is the sum of the
@@ -25,9 +25,9 @@ class WeightedNodeStrengthKS(KSCriterion):
             normalise:
                 If True, normalise the weights of the network by the maximum weight in the network. Defaults to True.
         """
-        super().__init__()
+        KSCriterion.__init__(self)
+        WeightedEvaluationCriterion.__init__(self)
         self.normalise = normalise
-        self.accepts = "weighted"
 
     @jaxtyped(typechecker=typechecked)
     def _get_graph_statistics(
@@ -47,7 +47,7 @@ class WeightedNodeStrengthKS(KSCriterion):
             return node_strenghts(matrices)
 
 
-class WeightedBetweennessKS(KSCriterion):
+class WeightedBetweennessKS(KSCriterion, WeightedEvaluationCriterion):
     """KS statistic comparing weighted betweenness centrality distributions between networks.
 
     We compute betweenness centrality using Brandes algorithm. This computes betweenness
@@ -70,9 +70,9 @@ class WeightedBetweennessKS(KSCriterion):
         Args:
             normalise: If True, normalise the weights of the network by the maximum weight in the network. Defaults to True.
         """
-        super().__init__()
+        KSCriterion.__init__(self)
+        WeightedEvaluationCriterion.__init__(self)
         self.normalise = normalise
-        self.accepts = "weighted"
 
     @jaxtyped(typechecker=typechecked)
     def _get_graph_statistics(
@@ -103,7 +103,7 @@ class WeightedBetweennessKS(KSCriterion):
         return torch.stack(betweenness_values)
 
 
-class WeightedClusteringKS(KSCriterion):
+class WeightedClusteringKS(KSCriterion, WeightedEvaluationCriterion):
     """KS statistic comparing weighted clustering coefficient distributions between networks.
 
     Implements the Onnela et al. (2005) definition of weighted clustering, which uses
@@ -118,7 +118,8 @@ class WeightedClusteringKS(KSCriterion):
     """
 
     def __init__(self):
-        self.accepts = "weighted"
+        KSCriterion.__init__(self)
+        WeightedEvaluationCriterion.__init__(self)
 
     def __str__(self) -> str:
         return "Weighted clustering coefficient KS"

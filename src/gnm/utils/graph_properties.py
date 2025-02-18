@@ -4,6 +4,8 @@ import torch
 import networkx as nx
 import numpy as np
 
+from .checks import binary_checks, weighted_checks
+
 
 @jaxtyped(typechecker=typechecked)
 def node_strengths(
@@ -32,6 +34,8 @@ def binary_clustering_coefficients(
     Returns:
         The clustering coefficients for each node.
     """
+    binary_checks(adjacency_matrix)
+
     degrees = adjacency_matrix.sum(dim=-1)
     number_of_pairs = degrees * (degrees - 1)
 
@@ -68,12 +72,7 @@ def weighted_clustering_coefficients(
     Returns:
         Clustering coefficients for each node in each network. Shape [*batch, num_nodes]
     """
-    # Check that the weight matrix is non-negative
-    assert (weight_matrices >= 0).all(), "Weight matrix must be non-negative"
-    # Check that the weight matrix is symmetric
-    assert (
-        weight_matrices == weight_matrices.transpose(-2, -1)
-    ).all(), "Weight matrices must be symmetric"
+    weighted_checks(weight_matrices)
 
     # Get max weight for normalization (keeping batch dims)
     max_weight = weight_matrices.amax(dim=(-2, -1), keepdim=True)  # [*batch, 1, 1]
@@ -155,6 +154,8 @@ def binary_betweenness_centrality(
     Returns:
         torch.Tensor: Array of betweenness centralities for each node in each network.
     """
+    binary_checks(matrices)
+
     graphs = [nx.from_numpy_array(matrix.cpu().numpy()) for matrix in matrices]
     return torch.tensor(
         [np.array(list(nx.betweenness_centrality(g).values())) for g in graphs]

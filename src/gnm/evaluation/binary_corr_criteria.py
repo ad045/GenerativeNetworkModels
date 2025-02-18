@@ -1,19 +1,19 @@
 import torch
 from jaxtyping import Float, jaxtyped
 from typeguard import typechecked
-from .evaluation_base import CorrelationCriterion
+from .evaluation_base import CorrelationCriterion, BinaryEvaluationCriterion
 
 from gnm.utils import binary_clustering_coefficients, binary_betweenness_centrality
 
 
-class DegreeCorrelation(CorrelationCriterion):
+class DegreeCorrelation(CorrelationCriterion, BinaryEvaluationCriterion):
     """
     Correlation criterion comparing degree distributions between networks.
     """
 
     def __init__(self, smoothing_matrix: Float[torch.Tensor, "num_nodes num_nodes"]):
-        self.smoothing_matrix = smoothing_matrix
-        self.accepts = "binary"
+        CorrelationCriterion.__init__(self, smoothing_matrix)
+        BinaryEvaluationCriterion.__init__(self)
 
     def __str__(self) -> str:
         return "Binary degree correlation"
@@ -37,8 +37,8 @@ class DegreeCorrelation(CorrelationCriterion):
 class ClusteringCorrelation(CorrelationCriterion):
 
     def __init__(self, smoothing_matrix: Float[torch.Tensor, "num_nodes num_nodes"]):
-        self.smoothing_matrix = smoothing_matrix
-        self.accepts = "binary"
+        CorrelationCriterion.__init__(self, smoothing_matrix)
+        BinaryEvaluationCriterion.__init__(self)
 
     def __str__(self) -> str:
         return "Binary degree correlation"
@@ -62,8 +62,8 @@ class ClusteringCorrelation(CorrelationCriterion):
 class BetweennessCorrelation(CorrelationCriterion):
 
     def __init__(self, smoothing_matrix: Float[torch.Tensor, "num_nodes num_nodes"]):
-        self.smoothing_matrix = smoothing_matrix
-        self.accepts = "binary"
+        CorrelationCriterion.__init__(self, smoothing_matrix)
+        BinaryEvaluationCriterion.__init__(self)
 
     def __str__(self) -> str:
         return "Binary betweenness centrality correlation"
