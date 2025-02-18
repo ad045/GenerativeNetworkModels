@@ -3,6 +3,8 @@ from typeguard import typechecked
 import torch
 from abc import ABC, abstractmethod
 
+from gnm.utils import binary_checks, weighted_checks
+
 
 class GenerativeRule(ABC):
     """
@@ -17,16 +19,7 @@ class GenerativeRule(ABC):
     def input_checks(
         self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
     ):
-        # Check that the adjacency matrix is binary
-        assert torch.allclose(
-            adjacency_matrix,
-            torch.where(adjacency_matrix != 0, torch.tensor(1), torch.tensor(0)),
-        ), "Adjacency matrix should be binary."
-
-        # Check that each matrix in the batch is symmetric
-        assert torch.allclose(
-            adjacency_matrix, adjacency_matrix.transpose(-2, -1)
-        ), "Adjacency matrices should be symmetric."
+        binary_checks(adjacency_matrix)
 
         # Check that the adjacency matrices have no self-connections
         batch_shape = adjacency_matrix.shape[:-2]
@@ -40,19 +33,11 @@ class GenerativeRule(ABC):
     def output_processing(
         self, affinity_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
     ):
-        # Check that the affinity matrices are symmetric
-        assert torch.allclose(
-            affinity_matrix, affinity_matrix.transpose(-2, -1)
-        ), "Affinity matrices should be symmetric."
-
-        # Check that the affinity matrices are non-negative
-        assert torch.all(
-            affinity_matrix >= 0
-        ), "Affinity matrices should be non-negative."
-
         # Remove all self-connections from the affinity matrices
         diagonal_indices = torch.arange(affinity_matrix.shape[-1])
         affinity_matrix[..., diagonal_indices, diagonal_indices] = 0
+
+        weighted_checks(affinity_matrix)
 
         return affinity_matrix
 

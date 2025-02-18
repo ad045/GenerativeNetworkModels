@@ -1,4 +1,4 @@
-from jaxtyping import Float, jaxtyped
+from jaxtyping import Float, jaxtyped, Int
 from typing import Optional, Tuple, Union, Any
 from typeguard import typechecked
 
@@ -506,7 +506,7 @@ class GenerativeNetworkModel:
             ]
         ] = None,
     ) -> Tuple[
-        Float[torch.Tensor, "num_simulations 2"],  # added edges for each simulation
+        Int[torch.Tensor, "num_simulations 2"],  # added edges for each simulation
         Float[
             torch.Tensor, "num_simulations num_nodes num_nodes"
         ],  # updated adjacency matrices
@@ -606,7 +606,7 @@ class GenerativeNetworkModel:
         diagonal_indices = torch.arange(
             self.num_nodes, device=self.adjacency_matrix.device
         )
-        unnormalised_wiring_probabilities[..., diagonal_indices, diagonal_indices] = 0
+        unnormalised_wiring_probabilities[..., diagonal_indices, diagonal_indices] = 0.0
 
         # Normalize the wiring probabilities for each simulation
         wiring_probability = (
@@ -627,13 +627,13 @@ class GenerativeNetworkModel:
         batch_indices = torch.arange(
             self.num_simulations, device=self.adjacency_matrix.device
         )
-        self.adjacency_matrix[batch_indices, first_nodes, second_nodes] = 1
-        self.adjacency_matrix[batch_indices, second_nodes, first_nodes] = 1
+        self.adjacency_matrix[batch_indices, first_nodes, second_nodes] = 1.0
+        self.adjacency_matrix[batch_indices, second_nodes, first_nodes] = 1.0
 
         # Add edges to weight matrices if they exist
-        if hasattr(self, "weight_matrix"):
-            self.weight_matrix.data[batch_indices, first_nodes, second_nodes] = 1
-            self.weight_matrix.data[batch_indices, second_nodes, first_nodes] = 1
+        if self.weight_matrix is not None:
+            self.weight_matrix.data[batch_indices, first_nodes, second_nodes] = 1.0
+            self.weight_matrix.data[batch_indices, second_nodes, first_nodes] = 1.0
 
         # Return the added edges and copies of updated adjacency matrices
         return added_edges, self.adjacency_matrix.clone()
@@ -660,22 +660,22 @@ class GenerativeNetworkModel:
             weight_matrix: (A detached copy of) the updated weight matrix, $W_{ij}$
         """
         # Check that the model has a weight matrix, optimisation criterion, and optimiser
-        if not hasattr(self, "weight_matrix"):
+        if self.weighted_parameters is None:
+            raise AttributeError(
+                "Model does not have weighted update parameters. Cannot perform weighted updates. Please call the weighted_initialisation method first."
+            )
+        if self.weight_matrix is None:
             raise AttributeError(
                 "Model does not have a weight matrix. Cannot perform weighted updates. Please call the weighted_initialisation method first."
             )
-        if not hasattr(self, "optimisation_criterion"):
-            raise AttributeError(
-                "Model does not have an optimisation criterion. Cannot perform weighted updates. Please call the weighted_initialisation method first."
-            )
-        if not hasattr(self, "optimiser"):
+        if self.optimiser is None:
             raise AttributeError(
                 "Model does not have an optimiser. Cannot perform weighted updates. Please call the weighted_initialisation method first."
             )
 
         # Perform the optimisation step on the weights.
         # Compute the loss - criterion outputs shape (num_simulations,)
-        loss = self.optimisation_criterion(self.weight_matrix)
+        loss = self.weighted_parameters.optimisation_criterion(self.weight_matrix)
         # Sum over the batch to get a scalar loss
         total_loss = torch.sum(loss)
 
@@ -714,7 +714,7 @@ class GenerativeNetworkModel:
             Float[torch.Tensor, "num_binary_updates num_nodes num_nodes"],
         ] = None,
     ) -> Tuple[
-        Float[
+        Int[
             torch.Tensor, "num_binary_updates num_simulations 2"
         ],  # added edges for each update
         Float[
@@ -817,7 +817,7 @@ class GenerativeNetworkModel:
                 weight_matrix = self.weighted_update()
                 weight_snapshots[update_idx] = weight_matrix
 
-        if weighted_updates_per_iteration == 0:
-            return added_edges_list, adjacency_snapshots, None
+        # stack the added edges
+        added_edges = torch.stack(added_edges_list, dim=0)
 
-        return added_edges_list, adjacency_snapshots, weight_snapshots
+        return added_edges, adjacency_snapshots, weight_snapshots
