@@ -106,8 +106,8 @@ def weighted_clustering_coefficients(
 
 @jaxtyped(typechecker=typechecked)
 def communicability(
-    weight_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
-) -> Float[torch.Tensor, "... num_nodes num_nodes"]:
+    weight_matrix: Float[torch.Tensor, "*batch num_nodes num_nodes"]
+) -> Float[torch.Tensor, "*batch num_nodes num_nodes"]:
     """Communicability optimisation criterion.
     To compute the communicability matrix, we go through the following steps:
 
@@ -140,12 +140,13 @@ def communicability(
 
     # Compute the communicability matrix
     communicability_matrix = torch.matrix_exp(normalised_weight_matrix)
+
     return communicability_matrix
 
 
 def binary_betweenness_centrality(
     matrices: Float[torch.Tensor, "num_matrices num_nodes num_nodes"]
-):
+) -> Float[torch.Tensor, "num_matrices num_nodes"]:
     """Compute betweenness centrality for each node in the network.
 
     Args:

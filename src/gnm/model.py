@@ -198,7 +198,7 @@ class WeightedGenerativeParameters:
     weight_lower_bound: float = 0.0
     weight_upper_bound: float = float("inf")
     maximise_criterion: bool = False
-    weighted_updates_per_iteration: int = 1
+    weight_updates_per_iteration: int = 1
 
     def __dict__(self) -> dict[str, Any]:
         return {
@@ -207,7 +207,7 @@ class WeightedGenerativeParameters:
             "weight_lower_bound": self.weight_lower_bound,
             "weight_upper_bound": self.weight_upper_bound,
             "maximise_criterion": self.maximise_criterion,
-            "weighted_updates_per_iteration": self.weighted_updates_per_iteration,
+            "weight_updates_per_iteration": self.weight_updates_per_iteration,
         }
 
 
@@ -277,14 +277,20 @@ class GenerativeNetworkModel:
     def __init__(
         self,
         binary_parameters: BinaryGenerativeParameters,
-        num_simulations: int,
+        num_simulations: Optional[int] = None,
+        num_nodes: Optional[int] = None,
         seed_adjacency_matrix: Optional[
             Union[
                 Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
                 Float[torch.Tensor, "num_nodes num_nodes"],
             ]
         ] = None,
-        distance_matrix: Optional[Float[torch.Tensor, "num_nodes num_nodes"]] = None,
+        distance_matrix: Optional[
+            Union[
+                Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
+                Float[torch.Tensor, "num_nodes num_nodes"],
+            ]
+        ] = None,
         weighted_parameters: Optional[WeightedGenerativeParameters] = None,
         seed_weight_matrix: Optional[
             Union[
@@ -320,105 +326,123 @@ class GenerativeNetworkModel:
             ValueError: If input matrices don't meet requirements (binary, symmetric, etc.) or
                         if weight matrix doesn't match adjacency support.
         """
-        # -----------------
-
-        # If the seed adjacency matrix is not provided, initialise to zeros
-        if seed_adjacency_matrix is None:
-            seed_adjacency_matrix = torch.zeros(
-                (10, 10), dtype=torch.float32, device="cpu"
-            )
-
-        # Check if seed matrix has batch dimension
-        if len(seed_adjacency_matrix.shape) > 2:
-            if seed_adjacency_matrix.shape[0] != num_simulations:
-                raise ValueError(
-                    f"Seed adjacency matrix batch size ({seed_adjacency_matrix.shape[0]}) "
-                    f"does not match number of simulations ({num_simulations})"
-                )
-        else:
-            # Add batch dimension if not present
-            seed_adjacency_matrix = seed_adjacency_matrix.unsqueeze(0).expand(
-                num_simulations, -1, -1
-            )
-
-        # If seed weight matrix is provided, handle its batch dimension
-        if seed_weight_matrix is not None:
-            if len(seed_weight_matrix.shape) > 2:
-                if seed_weight_matrix.shape[0] != num_simulations:
-                    raise ValueError(
-                        f"Seed weight matrix batch size ({seed_weight_matrix.shape[0]}) "
-                        f"does not match number of simulations ({num_simulations})"
-                    )
-            else:
-                seed_weight_matrix = seed_weight_matrix.unsqueeze(0).expand(
-                    num_simulations, -1, -1
-                )
-
-        # -----------------
-        # Validate adjacency
-        if not torch.all((seed_adjacency_matrix == 0) | (seed_adjacency_matrix == 1)):
-            raise ValueError("seed_adjacency_matrix must be binary (only 0s and 1s).")
-
-        # Check symmetry across last two dimensions
-        if not torch.allclose(
-            seed_adjacency_matrix, seed_adjacency_matrix.transpose(-2, -1)
-        ):
-            raise ValueError("seed_adjacency_matrix must be symmetric.")
-
-        # Check and remove self-connections
-        if torch.any(torch.diagonal(seed_adjacency_matrix, dim1=-2, dim2=-1) != 0):
-            print("Removing self-connections from adjacency matrix.")
-            seed_adjacency_matrix = seed_adjacency_matrix.clone()
-            diagonal_indices = torch.arange(seed_adjacency_matrix.shape[-1])
-            seed_adjacency_matrix[..., diagonal_indices, diagonal_indices] = 0
-
-        # -----------------
-        # Validate distance
-        if distance_matrix is None:
-            distance_matrix = torch.ones(
-                (seed_adjacency_matrix.shape[-2], seed_adjacency_matrix.shape[-1]),
-                dtype=seed_adjacency_matrix.dtype,
-                device=seed_adjacency_matrix.device,
-            )
-
-        if not torch.allclose(distance_matrix, distance_matrix.T):
-            raise ValueError("distance_matrix must be symmetric.")
-        if torch.any(distance_matrix < 0):
-            raise ValueError("distance_matrix must be non-negative.")
-
-        self.seed_adjacency_matrix = seed_adjacency_matrix
-        self.adjacency_matrix = seed_adjacency_matrix.clone()
-        self.distance_matrix = distance_matrix
-        self.num_nodes = seed_adjacency_matrix.shape[-1]
-        self.num_simulations = num_simulations
-
-        # -----------------
-        # Store binary parameters
         self.binary_parameters = binary_parameters
 
-        # Precompute distance factor - expand to match batch dimension
+        # ---- Set the number of nodes in the network ----
+
+        if num_nodes is not None:
+            self.num_nodes = num_nodes
+        elif distance_matrix is not None:
+            print("Number of nodes unspecified. Extracting from distance matrix.")
+            self.num_nodes = distance_matrix.shape[-1]
+        elif seed_adjacency_matrix is not None:
+            print("Number of nodes unspecified. Extracting from seed adjacency matrix.")
+            self.num_nodes = seed_adjacency_matrix.shape[-1]
+        elif seed_weight_matrix is not None:
+            print("Number of nodes unspecified. Extracting from seed weight matrix.")
+            self.num_nodes = seed_weight_matrix.shape[-1]
+        else:
+            raise ValueError(
+                "Number of nodes unspecified. Please pass in either a distance matrix, seed adjacency matrix, seed weight matrix, or number of nodes."
+            )
+
+        # ---- Set the number of simulations to run ----
+
+        self.num_simulations = None
+
+        if num_simulations is not None:
+            self.num_simulations = num_simulations
+
+        if distance_matrix is not None and self.num_simulations is None:
+            if len(distance_matrix.shape) == 3:
+                print(
+                    "Number of simulations unspecified. Extracting from distance matrix."
+                )
+                self.num_simulations = distance_matrix.shape[0]
+
+        if seed_adjacency_matrix is not None and self.num_simulations is None:
+            if len(seed_adjacency_matrix.shape) == 3:
+                print(
+                    "Number of simulations unspecified. Extracting from seed adjacency matrix."
+                )
+                self.num_simulations = distance_matrix.shape[0]
+
+        if seed_weight_matrix is not None and self.num_simulations is None:
+            if len(seed_weight_matrix.shape) == 3:
+                print(
+                    "Number of simulations unspecified. Extracting from seed weight matrix."
+                )
+
+        if self.num_simulations is None:
+            print("Number of simulations unspecified. Defaulting to 1.")
+            self.num_simulations = 1
+
+        # ---- Perform reshaping and checks on the seed adjacency matrix ----
+
+        if seed_adjacency_matrix is None:
+            print("Seed adjacency matrix unspecified. Assuming empty network.")
+            self.seed_adjacency_matrix = torch.zeros(
+                (self.num_simulations, self.num_nodes, self.num_nodes),
+                dtype=torch.float32,
+            )
+        elif len(seed_adjacency_matrix.shape) == 2:
+            self.seed_adjacency_matrix = seed_adjacency_matrix.unsqueeze(0).expand(
+                self.num_simulations, -1, -1
+            )
+        else:
+            if seed_adjacency_matrix.shape[0] != self.num_simulations:
+                raise ValueError(
+                    f"Seed adjacency matrix batch size ({seed_adjacency_matrix.shape[0]}) does not match number of simulations ({self.num_simulations})"
+                )
+            self.seed_adjacency_matrix = seed_adjacency_matrix
+
+        binary_checks(self.seed_adjacency_matrix)
+
+        self.adjacency_matrix = self.seed_adjacency_matrix.clone()
+
+        # ---- Perform reshaping and checks on the distance matrix ----
+
+        if distance_matrix is None:
+            print("Distance matrix unspecified. Assuming uniform distances.")
+            self.distance_matrix = torch.ones(
+                (self.num_simulations, self.num_nodes, self.num_nodes),
+                dtype=torch.float32,
+            )
+            # Remove the diagonals
+            self.distance_matrix[
+                :, torch.arange(self.num_nodes), torch.arange(self.num_nodes)
+            ] = 0.0
+        elif len(distance_matrix.shape) == 2:
+            self.distance_matrix = distance_matrix.unsqueeze(0).expand(
+                self.num_simulations, -1, -1
+            )
+        else:
+            if distance_matrix.shape[0] != self.num_simulations:
+                raise ValueError(
+                    f"Distance matrix batch size ({distance_matrix.shape[0]}) does not match number of simulations ({self.num_simulations})"
+                )
+            self.distance_matrix = distance_matrix
+
+        weighted_checks(self.distance_matrix)
+
+        # ---- Precompute distance factor for binary growth ----
+
         if self.binary_parameters.distance_relationship_type == "powerlaw":
-            self.distance_factor = (
-                distance_matrix.pow(self.binary_parameters.eta)
-                .unsqueeze(0)
-                .expand(num_simulations, -1, -1)
+            self.distance_factor = torch.pow(
+                self.distance_matrix, self.binary_parameters.eta
             )
         elif self.binary_parameters.distance_relationship_type == "exponential":
-            self.distance_factor = (
-                torch.exp(self.binary_parameters.eta * distance_matrix)
-                .unsqueeze(0)
-                .expand(num_simulations, -1, -1)
+            self.distance_factor = torch.exp(
+                self.binary_parameters.eta * self.distance_matrix
             )
         else:
             raise ValueError(
                 f"Unsupported distance relationship: {self.binary_parameters.distance_relationship_type}"
             )
 
-        # -----------------
-        # Weighted parameters
-        self.weighted_parameters = weighted_parameters
+        # ---- Weighted network initialisation ----
 
-        if self.weighted_parameters is not None:
+        if weighted_parameters is not None:
             self.weighted_initialisation(weighted_parameters, seed_weight_matrix)
         else:
             self.weighted_parameters = None
@@ -468,32 +492,18 @@ class GenerativeNetworkModel:
             print("No weight matrix provided. Initialising from adjacency matrix.")
             seed_weight_matrix = self.adjacency_matrix.clone()
         else:
-            # Handle batch dimension if needed
             if len(seed_weight_matrix.shape) == 2:
+                print("exanding seed weight matrix")
                 seed_weight_matrix = seed_weight_matrix.unsqueeze(0).expand(
                     self.num_simulations, -1, -1
                 )
             elif seed_weight_matrix.shape[0] != self.num_simulations:
                 raise ValueError(
-                    f"Seed weight matrix batch size ({seed_weight_matrix.shape[0]}) "
-                    f"does not match number of simulations ({self.num_simulations})"
+                    f"Seed weight matrix batch size ({seed_weight_matrix.shape[0]}) does not match number of simulations ({self.num_simulations})"
                 )
 
-        # Validate user-provided weight matrix.
-        # Check symmetry along last two dimensions
-        if not torch.allclose(seed_weight_matrix, seed_weight_matrix.transpose(-2, -1)):
-            raise ValueError("seed_weight_matrix must be symmetric.")
+        weighted_checks(seed_weight_matrix)
 
-        if torch.any(seed_weight_matrix < 0):
-            raise ValueError("seed_weight_matrix must be non-negative.")
-
-        # Check support against adjacency matrix using broadcasting
-        if torch.any((self.adjacency_matrix == 0) & (seed_weight_matrix != 0)):
-            raise ValueError(
-                "seed_weight_matrix must have support only where adjacency is non-zero."
-            )
-
-        # If the checks pass, store the weight matrix and initialise the optimiser.
         self.seed_weight_matrix = seed_weight_matrix
 
         # Create a copy for the actual weight matrix that will be optimised.
@@ -559,7 +569,7 @@ class GenerativeNetworkModel:
         # Handle heterochronous matrix
         if heterochronous_matrix is None:
             heterochronous_matrix = torch.ones(
-                (self.num_nodes, self.num_nodes),
+                (self.num_simulations, self.num_nodes, self.num_nodes),
                 dtype=self.seed_adjacency_matrix.dtype,
                 device=self.seed_adjacency_matrix.device,
             )
@@ -576,30 +586,25 @@ class GenerativeNetworkModel:
             )
 
         # Implement generative rule - already handles batch dimensions
-        matching_index_matrix = self.binary_parameters.generative_rule(
-            self.adjacency_matrix
-        )
+        affinity_matrix = self.binary_parameters.generative_rule(self.adjacency_matrix)
 
         # Add prob_offset to prevent zero to the power of negative number
-        matching_index_matrix[
-            matching_index_matrix == 0
-        ] += self.binary_parameters.prob_offset
+        affinity_matrix[affinity_matrix == 0] += self.binary_parameters.prob_offset
 
         # Calculate factors - broadcasting handles batch dimensions
         if self.binary_parameters.preferential_relationship_type == "powerlaw":
-            matching_factor = matching_index_matrix.pow(self.binary_parameters.gamma)
+            matching_factor = affinity_matrix.pow(self.binary_parameters.gamma)
             heterochronous_factor = torch.exp(
                 self.binary_parameters.lambdah * heterochronous_matrix
             )
         elif self.binary_parameters.preferential_relationship_type == "exponential":
-            matching_factor = torch.exp(
-                self.binary_parameters.gamma * matching_index_matrix
-            )
+            matching_factor = torch.exp(self.binary_parameters.gamma * affinity_matrix)
             heterochronous_factor = torch.exp(
                 self.binary_parameters.lambdah * heterochronous_matrix
             )
 
         # Calculate unnormalised wiring probabilities for each edge
+
         unnormalised_wiring_probabilities = (
             heterochronous_factor * self.distance_factor * matching_factor
         )
@@ -772,10 +777,10 @@ class GenerativeNetworkModel:
         )
 
         if self.weighted_parameters is not None:
-            weighted_updates_per_iteration = (
-                self.weighted_parameters.weighted_updates_per_iteration
+            weight_updates_per_iteration = (
+                self.weighted_parameters.weight_updates_per_iteration
             )
-            total_weighted_updates = num_iterations * weighted_updates_per_iteration
+            total_weighted_updates = num_iterations * weight_updates_per_iteration
             weight_snapshots = torch.zeros(
                 (
                     total_weighted_updates,
@@ -787,7 +792,7 @@ class GenerativeNetworkModel:
                 dtype=self.adjacency_matrix.dtype,
             )
         else:
-            weighted_updates_per_iteration = 0
+            weight_updates_per_iteration = 0
             weight_snapshots = None
 
         # Handle heterochronous matrix
@@ -822,8 +827,8 @@ class GenerativeNetworkModel:
                 adjacency_snapshots[update_idx] = adjacency_matrix
                 added_edges_list.append(added_edges)
 
-            for jj in range(weighted_updates_per_iteration):
-                update_idx = ii * weighted_updates_per_iteration + jj
+            for jj in range(weight_updates_per_iteration):
+                update_idx = ii * weight_updates_per_iteration + jj
                 weight_matrix = self.weighted_update()
                 weight_snapshots[update_idx] = weight_matrix
 
