@@ -11,6 +11,8 @@ import torch.optim as optim
 from tqdm import tqdm
 from dataclasses import dataclass
 
+from gnm.utils import binary_checks, weighted_checks
+
 
 @dataclass
 class BinaryGenerativeParameters:
@@ -276,10 +278,12 @@ class GenerativeNetworkModel:
         self,
         binary_parameters: BinaryGenerativeParameters,
         num_simulations: int,
-        seed_adjacency_matrix: Union[
-            Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
-            Float[torch.Tensor, "num_nodes num_nodes"],
-        ],
+        seed_adjacency_matrix: Optional[
+            Union[
+                Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
+                Float[torch.Tensor, "num_nodes num_nodes"],
+            ]
+        ] = None,
         distance_matrix: Optional[Float[torch.Tensor, "num_nodes num_nodes"]] = None,
         weighted_parameters: Optional[WeightedGenerativeParameters] = None,
         seed_weight_matrix: Optional[
@@ -317,7 +321,13 @@ class GenerativeNetworkModel:
                         if weight matrix doesn't match adjacency support.
         """
         # -----------------
-        # Handle batch dimensions
+
+        # If the seed adjacency matrix is not provided, initialise to zeros
+        if seed_adjacency_matrix is None:
+            seed_adjacency_matrix = torch.zeros(
+                (10, 10), dtype=torch.float32, device="cpu"
+            )
+
         # Check if seed matrix has batch dimension
         if len(seed_adjacency_matrix.shape) > 2:
             if seed_adjacency_matrix.shape[0] != num_simulations:

@@ -51,6 +51,7 @@ class BinarySweepParameters:
             "preferential_relationship_type",
             "heterochronicity_relationship_type",
             "generative_rule",
+            "num_iterations",
             "prob_offset",
             "binary_updates_per_iteration",
         ]
@@ -103,21 +104,21 @@ class RunConfig:
             Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
             Float[torch.Tensor, "num_nodes num_nodes"],
         ]
-    ]
-    distance_matrix: Optional[Float[torch.Tensor, "num_nodes num_nodes"]]
-    weighted_parameters: Optional[WeightedGenerativeParameters]
+    ] = None
+    distance_matrix: Optional[Float[torch.Tensor, "num_nodes num_nodes"]] = None
+    weighted_parameters: Optional[WeightedGenerativeParameters] = None
     seed_weight_matrix: Optional[
         Union[
             Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
             Float[torch.Tensor, "num_nodes num_nodes"],
         ]
-    ]
+    ] = None
     heterochronous_matrix: Optional[
         Union[
             Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
             Float[torch.Tensor, "num_nodes num_nodes"],
         ]
-    ]
+    ] = None
 
 
 @dataclass
@@ -189,7 +190,7 @@ class SweepConfig:
 
         # Create product of all parameter combinations
         for params in product(
-            iter(self.binary_parameters),
+            iter(self.binary_sweep_parameters),
             seed_adj_list,
             distance_list,
             weighted_sweep_parameters,
@@ -274,7 +275,7 @@ def perform_run(
         weighted_checks(real_weighted_matrices)
 
     model = GenerativeNetworkModel(
-        binary_parmeters=run_config.binary_parameters,
+        binary_parameters=run_config.binary_parameters,
         num_simulations=run_config.num_simulations,
         seed_adjacency_matrix=run_config.seed_adjacency_matrix,
         distance_matrix=run_config.distance_matrix,
@@ -328,8 +329,8 @@ def perform_run(
 @jaxtyped(typechecker=typechecked)
 def perform_sweep(
     sweep_config: SweepConfig,
-    binary_evaluations: Optional[List[BinaryEvaluationCriterion]],
-    weighted_evaluations: Optional[List[WeightedEvaluationCriterion]],
+    binary_evaluations: Optional[List[BinaryEvaluationCriterion]] = None,
+    weighted_evaluations: Optional[List[WeightedEvaluationCriterion]] = None,
     real_binary_matrices: Optional[
         Float[torch.Tensor, "num_real_binary_networks num_nodes num_nodes"]
     ] = None,

@@ -175,9 +175,6 @@ class ClusteringRule(GenerativeRule, ABC):
     Classes which inherit from this base class use the clustering coefficients to form the affinity factor.
     """
 
-    def __str__(self) -> str:
-        return "Clustering coefficient"
-
     @jaxtyped(typechecker=typechecked)
     def _clustering_coefficients(
         self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
@@ -193,6 +190,8 @@ class ClusteringRule(GenerativeRule, ABC):
             dim2=-1,
         )
 
+        # Avoid division by zero or minus one
+        number_of_pairs[number_of_pairs == 0] = 1
         clustering_coefficients = number_of_triangles / number_of_pairs
         return clustering_coefficients.unsqueeze(-1)
 
