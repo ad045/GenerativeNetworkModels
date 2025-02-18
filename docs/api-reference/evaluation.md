@@ -2,31 +2,31 @@
 
 ## Evaluation 
 
-::: gnm.fitting.EvaluationCriterion
+::: gnm.evaluation.EvaluationCriterion
     options:
         members:
             - __call__
 
-::: gnm.fitting.KSCriterion
+::: gnm.evaluation.KSCriterion
     options:
         members:
             - __call__
 
-::: gnm.fitting.CorrelationCriterion
+::: gnm.evaluation.CorrelationCriterion
     options:
         members:
             - __call__ 
 
-::: gnm.fitting.MaxCriteria
+::: gnm.evaluation.MaxCriteria
     options:
         members:
             - __call__
 
-::: gnm.fitting.MeanCriteria
+::: gnm.evaluation.MeanCriteria
     options:
         members: []
 
-::: gnm.fitting.WeightedSumCriteria
+::: gnm.evaluation.WeightedSumCriteria
     options:
         members:
             - __init__
@@ -34,49 +34,49 @@
 
 ### Binary KS Criteria
 
-::: gnm.fitting.BetweennessKS
+::: gnm.evaluation.BetweennessKS
     options:
         members: []
 
-::: gnm.fitting.ClusteringKS
+::: gnm.evaluation.ClusteringKS
     options:
         members: []
 
-::: gnm.fitting.DegreeKS
+::: gnm.evaluation.DegreeKS
     options:
         members: []
 
-::: gnm.fitting.EdgeLengthKS
+::: gnm.evaluation.EdgeLengthKS
     options:
         members:
             - __init__
 
 ### Weighted KS Criteria
 
-::: gnm.fitting.WeightedNodeStrengthKS
+::: gnm.evaluation.WeightedNodeStrengthKS
     options:
         members:
             - __init__
 
-::: gnm.fitting.WeightedBetweennessKS
+::: gnm.evaluation.WeightedBetweennessKS
     options:
         members:
             - __init__
 
-::: gnm.fitting.WeightedClusteringKS
+::: gnm.evaluation.WeightedClusteringKS
     options:
         members: []
 
 ### Binary Correlation Criteria
 
-::: gnm.fitting.DegreeCorrelation
+::: gnm.evaluation.DegreeCorrelation
     options:
         members: []
     
-::: gnm.fitting.ClusteringCorrelation
+::: gnm.evaluation.ClusteringCorrelation
     options:
         members: []
     
-::: gnm.fitting.BetweennessCorrelation
+::: gnm.evaluation.BetweennessCorrelation
     options:
         members: []
