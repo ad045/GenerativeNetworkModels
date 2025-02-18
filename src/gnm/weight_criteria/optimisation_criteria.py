@@ -1,9 +1,10 @@
 import torch
 from jaxtyping import Float, jaxtyped
+from typing import Union
 from typeguard import typechecked
 from abc import ABC, abstractmethod
 
-from gnm.utils import communicability
+from gnm.utils import communicability, weighted_checks
 
 
 class OptimisationCriterion(ABC):
@@ -149,7 +150,10 @@ class DistanceWeightedCommunicability(OptimisationCriterion):
 
     def __init__(
         self,
-        distance_matrix: Float[torch.Tensor, "num_nodes num_nodes"],
+        distance_matrix: Union[
+            Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
+            Float[torch.Tensor, "num_nodes num_nodes"],
+        ],
         omega: float = 1.0,
     ):
         """
@@ -159,7 +163,12 @@ class DistanceWeightedCommunicability(OptimisationCriterion):
             omega:
                 The power to which to raise each element of the distance weighted communicability before performing
                 the sum. Defaults to 1.0."""
-        self.distance_matrix = distance_matrix
+        if len(distance_matrix.shape) == 2:
+            self.distance_matrix = distance_matrix.unsqueeze(0)
+        else:
+            self.distance_matrix = distance_matrix
+
+        weighted_checks(self.distance_matrix)
         self.omega = omega
 
     def __str__(self) -> str:
@@ -182,7 +191,7 @@ class DistanceWeightedCommunicability(OptimisationCriterion):
         """
         communicability_matrix = communicability(weight_matrix)
         distance_weighted_communicability = torch.pow(
-            communicability_matrix * self.distance_matrix.unsqueeze(0), self.omega
+            communicability_matrix * self.distance_matrix, self.omega
         )
         return torch.sum(distance_weighted_communicability, dim=(-2, -1))
 
@@ -212,7 +221,10 @@ class NormalisedDistanceWeightedCommunicability(OptimisationCriterion):
 
     def __init__(
         self,
-        distance_matrix: Float[torch.Tensor, "num_nodes num_nodes"],
+        distance_matrix: Union[
+            Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
+            Float[torch.Tensor, "num_nodes num_nodes"],
+        ],
         omega: float = 1.0,
     ):
         """
@@ -222,7 +234,12 @@ class NormalisedDistanceWeightedCommunicability(OptimisationCriterion):
             omega:
                 The power to which to raise each element of the distance weighted communicability before performing
                 the sum. Defaults to 1.0."""
-        self.distance_matrix = distance_matrix
+        if len(distance_matrix.shape) == 2:
+            self.distance_matrix = distance_matrix.unsqueeze(0)
+        else:
+            self.distance_matrix = distance_matrix
+
+        weighted_checks(self.distance_matrix)
         self.omega = omega
 
     def __str__(self) -> str:
@@ -246,7 +263,7 @@ class NormalisedDistanceWeightedCommunicability(OptimisationCriterion):
         communicability_matrix = communicability(weight_matrix)
         # Expand distance matrix to match batch dimensions
         distance_weighted_communicability = torch.pow(
-            communicability_matrix * self.distance_matrix.unsqueeze(0), self.omega
+            communicability_matrix * self.distance_matrix, self.omega
         )
         max_distance_weighted_communicability = torch.amax(
             distance_weighted_communicability, dim=(-2, -1), keepdim=True
@@ -274,10 +291,18 @@ class WeightedDistance(OptimisationCriterion):
 
     def __init__(
         self,
-        distance_matrix: Float[torch.Tensor, "num_nodes num_nodes"],
+        distance_matrix: Union[
+            Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
+            Float[torch.Tensor, "num_nodes num_nodes"],
+        ],
         omega: float = 1.0,
     ):
-        self.distance_matrix = distance_matrix
+        if len(distance_matrix.shape) == 2:
+            self.distance_matrix = distance_matrix.unsqueeze(0)
+        else:
+            self.distance_matrix = distance_matrix
+
+        weighted_checks(self.distance_matrix)
         self.omega = omega
 
     def __str__(self) -> str:
@@ -287,9 +312,7 @@ class WeightedDistance(OptimisationCriterion):
     def __call__(
         self, weight_matrix: Float[torch.Tensor, "num_simulations num_nodes num_nodes"]
     ) -> Float[torch.Tensor, "num_simulations"]:
-        weighted_distance = torch.pow(
-            self.distance_matrix.unsqueeze(0) * weight_matrix, self.omega
-        )
+        weighted_distance = torch.pow(self.distance_matrix * weight_matrix, self.omega)
         return torch.sum(weighted_distance, dim=(-2, -1))
 
 
@@ -311,10 +334,18 @@ class NormalisedWeightedDistance(OptimisationCriterion):
 
     def __init__(
         self,
-        distance_matrix: Float[torch.Tensor, "num_nodes num_nodes"],
+        distance_matrix: Union[
+            Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
+            Float[torch.Tensor, "num_nodes num_nodes"],
+        ],
         omega: float = 1.0,
     ):
-        self.distance_matrix = distance_matrix
+        if len(distance_matrix.shape) == 2:
+            self.distance_matrix = distance_matrix.unsqueeze(0)
+        else:
+            self.distance_matrix = distance_matrix
+
+        weighted_checks(self.distance_matrix)
         self.omega = omega
 
     def __str__(self) -> str:
@@ -324,9 +355,7 @@ class NormalisedWeightedDistance(OptimisationCriterion):
     def __call__(
         self, weight_matrix: Float[torch.Tensor, "num_simulations num_nodes num_nodes"]
     ) -> Float[torch.Tensor, "num_simulations"]:
-        weighted_distance = torch.pow(
-            self.distance_matrix.unsqueeze(0) * weight_matrix, self.omega
-        )
+        weighted_distance = torch.pow(self.distance_matrix * weight_matrix, self.omega)
         max_weighted_distance = torch.amax(
             weighted_distance, dim=(-2, -1), keepdim=True
         )

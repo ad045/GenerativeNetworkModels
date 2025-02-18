@@ -456,8 +456,11 @@ class GenerativeNetworkModel:
         weighted_parameters: WeightedGenerativeParameters,
         seed_weight_matrix: Optional[
             Union[
-                Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
-                Float[torch.Tensor, "num_nodes num_nodes"],
+                Float[
+                    torch.Tensor,
+                    "{self.num_simulations} {self.num_nodes} {self.num_nodes}",
+                ],
+                Float[torch.Tensor, "{self.num_nodes} {self.num_nodes}"],
             ]
         ] = None,
     ):
@@ -521,14 +524,19 @@ class GenerativeNetworkModel:
         self,
         heterochronous_matrix: Optional[
             Union[
-                Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
-                Float[torch.Tensor, "num_nodes num_nodes"],
+                Float[
+                    torch.Tensor,
+                    "{self.num_simulations} {self.num_nodes} {self.num_nodes}",
+                ],
+                Float[torch.Tensor, "{self.num_nodes} {self.num_nodes}"],
             ]
         ] = None,
     ) -> Tuple[
-        Int[torch.Tensor, "num_simulations 2"],  # added edges for each simulation
+        Int[
+            torch.Tensor, "{self.num_simulations} 2"
+        ],  # added edges for each simulation
         Float[
-            torch.Tensor, "num_simulations num_nodes num_nodes"
+            torch.Tensor, "{self.num_simulations} {self.num_nodes} {self.num_nodes}"
         ],  # updated adjacency matrices
     ]:
         """
@@ -656,7 +664,9 @@ class GenerativeNetworkModel:
     @jaxtyped(typechecker=typechecked)
     def weighted_update(
         self,
-    ) -> Float[torch.Tensor, "num_simulations num_nodes num_nodes"]:
+    ) -> Float[
+        torch.Tensor, "{self.num_simulations} {self.num_nodes} {self.num_nodes}"
+    ]:
         """
         Performs one update step of the weight matrix $W_{ij}$ for the weighted GNM. The weights are updated
         using gradient descent on the specified optimisation criterion, with the learning rate $\\alpha$:
@@ -724,22 +734,23 @@ class GenerativeNetworkModel:
         self,
         heterochronous_matrix: Union[
             Float[
-                torch.Tensor, "num_binary_updates num_simulations num_nodes num_nodes"
+                torch.Tensor,
+                "num_binary_updates {self.num_simulations} {self.num_nodes} {self.num_nodes}",
             ],
-            Float[torch.Tensor, "num_binary_updates num_nodes num_nodes"],
+            Float[torch.Tensor, "num_binary_updates {self.num_nodes} {self.num_nodes}"],
         ] = None,
     ) -> Tuple[
         Int[
-            torch.Tensor, "num_binary_updates num_simulations 2"
+            torch.Tensor, "num_binary_updates {self.num_simulations} 2"
         ],  # added edges for each update
         Float[
             torch.Tensor,
-            "num_binary_updates num_simulations num_nodes num_nodes",
+            "num_binary_updates {self.num_simulations} {self.num_nodes} {self.num_nodes}",
         ],  # Adjacency snapshots
         Optional[
             Float[
                 torch.Tensor,
-                "num_weight_updates num_simulations num_nodes num_nodes",
+                "num_weight_updates {self.num_simulations} {self.num_nodes} {self.num_nodes}",
             ]  # Weight snapshots
         ],
     ]:
