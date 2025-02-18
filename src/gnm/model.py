@@ -2,8 +2,8 @@ from jaxtyping import Float, jaxtyped
 from typing import Optional, Tuple, Union, Any
 from typeguard import typechecked
 
-from weight_criteria import OptimisationCriterion
-from generative_rules import GenerativeRule
+from .weight_criteria import OptimisationCriterion
+from .generative_rules import GenerativeRule
 
 import torch
 import torch.optim as optim
@@ -94,9 +94,9 @@ class BinaryGenerativeParameters:
     preferential_relationship_type: str
     heterochronicity_relationship_type: str
     generative_rule: GenerativeRule
+    num_iterations: int
     prob_offset: float = 1e-6
     binary_updates_per_iteration: int = 1
-    num_iterations: int
 
     def __post_init__(self):
         # Perform checks on the distance and matching index relationship type.
@@ -160,11 +160,6 @@ class WeightedGenerativeParameters:
             See OptimisationCriterion class for available options like
             distance-weighted communicability or weighted distance.
 
-        optimisation_normalisation (bool, optional):
-            Whether to normalise the optimisation criterion before computing
-            gradients. Normalisation can help prevent numerical instability
-            by keeping values in a reasonable range. Defaults to False
-
         weight_lower_bound (float, optional):
             Minimum allowed value for any weight ($W_{\\rm lower}$). All weights
             will be clipped to stay above this value. Must be non-negative.
@@ -185,7 +180,6 @@ class WeightedGenerativeParameters:
         >>> weighted_parameters = WeightedGenerativeParameters(
         ...     alpha=0.01,
         ...     optimisation_criterion=communicability_optimisation_criterion,
-        ...     optimisation_normalisation=True,
         ...     weight_lower_bound=0.0,
         ...     weight_upper_bound=1.0,
         ...     maximise_criterion=False
@@ -199,7 +193,6 @@ class WeightedGenerativeParameters:
 
     alpha: float
     optimisation_criterion: OptimisationCriterion
-    optimisation_normalisation: bool = False
     weight_lower_bound: float = 0.0
     weight_upper_bound: float = float("inf")
     maximise_criterion: bool = False
@@ -209,7 +202,6 @@ class WeightedGenerativeParameters:
         return {
             "alpha": self.alpha,
             "optimisation_criterion": str(self.optimisation_criterion),
-            "optimisation_normalisation": self.optimisation_normalisation,
             "weight_lower_bound": self.weight_lower_bound,
             "weight_upper_bound": self.weight_upper_bound,
             "maximise_criterion": self.maximise_criterion,
@@ -294,7 +286,7 @@ class GenerativeNetworkModel:
             Union[
                 Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
                 Float[torch.Tensor, "num_nodes num_nodes"],
-            ],
+            ]
         ] = None,
     ):
         """The initialisation process for the Generative Network Model:
@@ -432,7 +424,7 @@ class GenerativeNetworkModel:
             Union[
                 Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
                 Float[torch.Tensor, "num_nodes num_nodes"],
-            ],
+            ]
         ] = None,
     ):
         """Initialise the weight matrix and optimiser for the weighted GNM.
@@ -511,7 +503,7 @@ class GenerativeNetworkModel:
             Union[
                 Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
                 Float[torch.Tensor, "num_nodes num_nodes"],
-            ],
+            ]
         ] = None,
     ) -> Tuple[
         Float[torch.Tensor, "num_simulations 2"],  # added edges for each simulation

@@ -6,7 +6,7 @@ from typing import Optional
 
 from .evaluation_base import KSCriterion, WeightedEvaluationCriterion
 
-from gnm.utils import node_strenghts, weighted_clustering_coefficients
+from gnm.utils import node_strengths, weighted_clustering_coefficients
 
 
 class WeightedNodeStrengthKS(KSCriterion, WeightedEvaluationCriterion):
@@ -42,9 +42,9 @@ class WeightedNodeStrengthKS(KSCriterion, WeightedEvaluationCriterion):
             torch.Tensor: Vector of node strengths
         """
         if self.normalise:
-            return node_strenghts(matrices / matrices.max(dim=-1, keepdim=True))
+            return node_strengths(matrices / matrices.max(dim=-1, keepdim=True))
         else:
-            return node_strenghts(matrices)
+            return node_strengths(matrices)
 
 
 class WeightedBetweennessKS(KSCriterion, WeightedEvaluationCriterion):

@@ -7,7 +7,7 @@ from typing import List, Iterator, Optional, Any, Dict, Union
 from itertools import product
 from jaxtyping import Float, jaxtyped
 from typeguard import typechecked
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import wandb
 
@@ -30,9 +30,9 @@ class BinarySweepParameters:
     preferential_relationship_type: List[str]
     heterochronicity_relationship_type: List[str]
     generative_rule: List[GenerativeRule]
-    prob_offset: List[float] = [1e-6]
-    binary_updates_per_iteration: List[int] = [1]
     num_iterations: List[int]
+    prob_offset: List[float] = field(default_factory=lambda: [1e-6])
+    binary_updates_per_iteration: List[int] = field(default_factory=lambda: [1])
 
     def __iter__(self) -> Iterator[BinaryGenerativeParameters]:
         """Creates an iterator over all combinations of parameters.
@@ -65,11 +65,10 @@ class BinarySweepParameters:
 class WeightedSweepParameters:
     alpha: List[float]
     optimisation_criterion: List[OptimisationCriterion]
-    optimisation_normalisation: List[bool] = [False]
-    weight_lower_bound: List[float] = [0.0]
-    weight_upper_bound: List[float] = [float("inf")]
-    maximise_criterion: List[bool] = [False]
-    weight_updates_per_iteration: List[int] = [1]
+    weight_lower_bound: List[float] = field(default_factory=lambda: [0.0])
+    weight_upper_bound: List[float] = field(default_factory=lambda: [float("inf")])
+    maximise_criterion: List[bool] = field(default_factory=lambda: [False])
+    weight_updates_per_iteration: List[int] = field(default_factory=lambda: [1])
 
     def __iter__(self) -> Iterator[WeightedGenerativeParameters]:
         """Creates an iterator over all combinations of parameters.
@@ -83,7 +82,6 @@ class WeightedSweepParameters:
         param_names = [
             "alpha",
             "optimisation_criterion",
-            "optimisation_normalisation",
             "weight_lower_bound",
             "weight_upper_bound",
             "maximise_criterion",
@@ -143,7 +141,7 @@ class SweepConfig:
                 Float[torch.Tensor, "num_nodes num_nodes"],
             ]
         ]
-    ]
+    ] = None
     heterochronous_matrix: Optional[
         List[
             Union[
