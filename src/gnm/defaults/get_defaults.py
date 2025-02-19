@@ -67,6 +67,7 @@ def get_distance_matrix(
     distance_matrix = torch.load(
         os.path.join(BASE_PATH, f"distance_matrices/{name.split('.')[0].upper()}.pt"),
         map_location=device,
+        weights_only=True,
     )
 
     weighted_checks(distance_matrix.unsqueeze(0))
@@ -105,6 +106,7 @@ def get_coordinates(
     return torch.load(
         os.path.join(BASE_PATH, f"coordinates/{name.split('.')[0].upper()}.pt"),
         map_location=device,
+        weights_only=True,
     )
 
 
@@ -139,6 +141,7 @@ def get_binary_network(
     binary_networks = torch.load(
         os.path.join(BASE_PATH, f"binary_networks/{name.split('.')[0].upper()}.pt"),
         map_location=device,
+        weights_only=True,
     )
 
     binary_checks(binary_networks)
@@ -177,6 +180,7 @@ def get_weighted_network(
     weighted_networks = torch.load(
         os.path.join(BASE_PATH, f"weighted_networks/{name.split('.')[0].upper()}.pt"),
         map_location=device,
+        weights_only=True,
     )
 
     weighted_checks(weighted_networks)

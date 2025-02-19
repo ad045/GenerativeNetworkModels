@@ -575,9 +575,9 @@ class GenerativeNetworkModel:
         $$
         These probabilities are then postprocessed by:
 
-        1. Set the probability for all existing connections to be zero, $P_{ij} \gets P_{ij} \\times (1 - A_{ij})$
+        1. Set the probability for all existing connections to be zero, $P_{ij} \gets P_{ij} \times (1 - A_{ij})$
         2. Set the probability of self-connections to be zero, $P_{ii} \gets 0$
-        3. Add on a small offset to prevent division by zero, $P_{ij} \gets P_{ij} + \\epsilon$
+        3. Add on a small offset to prevent division by zero, $P_{ij} \gets P_{ij} + \epsilon$
         4. Normalise the probabilities to sum to one, $P_{ij} \gets P_{ij} / \sum_{kl} P_{kl}$
 
         An edge $(a,b)$ is then sampled from the normalised probabilities.
@@ -700,7 +700,7 @@ class GenerativeNetworkModel:
         Following the update step, the following postprocessing steps are performed:
 
         1. Symmetry: The weight matrix is made symmetric by averaging with its transpose, $W \gets (1/2)(W + W^T)$.
-        2. Clipping: The weights are clipped to the specified bounds $W_{\\rm lower} \leq W_{ij} \leq W_{\\rm upper}$.
+        2. Clipping: The weights are clipped to the specified bounds $W_{\rm lower} \leq W_{ij} \leq W_{\rm upper}$.
         3. Consistency with binary adjacency: All weights where the adjacency matrix is zero are set to zero, so that if $A_{ij} = 0$ then $W_{ij} = 0$.
 
         Raises:
