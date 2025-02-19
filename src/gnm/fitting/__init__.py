@@ -1,11 +1,14 @@
 from .sweep import (
-    BinarySweepParameters,
-    WeightedSweepParameters,
-    SweepConfig,
-    RunConfig,
-    Results,
     perform_run,
     perform_sweep,
+)
+from .experiment_dataclasses import (
+    BinarySweepParameters,
+    WeightedSweepParameters,
+    Experiment,
+    Results,
+    RunConfig,
+    SweepConfig,
 )
 
 
@@ -15,6 +18,7 @@ __all__ = [
     "SweepConfig",
     "RunConfig",
     "Results",
+    "Experiment",
     "perform_run",
     "perform_sweep",
 ]
