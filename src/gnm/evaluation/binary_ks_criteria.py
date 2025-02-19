@@ -5,7 +5,11 @@ from jaxtyping import Float, jaxtyped
 from typeguard import typechecked
 from .evaluation_base import KSCriterion, BinaryEvaluationCriterion
 
-from gnm.utils import binary_clustering_coefficients, ks_statistic
+from gnm.utils import (
+    binary_clustering_coefficients,
+    binary_betweenness_centrality,
+    ks_statistic,
+)
 
 
 class DegreeKS(KSCriterion, BinaryEvaluationCriterion):
@@ -82,10 +86,7 @@ class BetweennessKS(KSCriterion, BinaryEvaluationCriterion):
         Returns:
             torch.Tensor: Vector of betweenness centralities
         """
-        graphs = [nx.from_numpy_array(matrix.cpu().numpy()) for matrix in matrices]
-        return torch.tensor(
-            [np.array(list(nx.betweenness_centrality(g).values())) for g in graphs]
-        )
+        return binary_betweenness_centrality(matrices)
 
 
 class EdgeLengthKS(BinaryEvaluationCriterion):
@@ -126,7 +127,7 @@ class EdgeLengthKS(BinaryEvaluationCriterion):
         num_synthetic_networks = synthetic_matrices.shape[0]
         num_real_networks = real_matrices.shape[0]
         ks_distances = torch.zeros(
-            num_synthetic_networks, num_real_networks, dtype=torch.float32
+            num_synthetic_networks, num_real_networks, dtype=synthetic_matrices.dtype
         )
         synthetic_edge_lengths = []
         real_edge_lengths = []
@@ -141,8 +142,10 @@ class EdgeLengthKS(BinaryEvaluationCriterion):
         for i in range(num_synthetic_networks):
             for j in range(num_real_networks):
                 ks_distances[i, j] = ks_statistic(
-                    synthetic_edge_lengths, real_edge_lengths
+                    synthetic_edge_lengths[i], real_edge_lengths[j]
                 )
+
+        return ks_distances
 
     @jaxtyped(typechecker=typechecked)
     def _get_edge_lengths(
@@ -157,4 +160,4 @@ class EdgeLengthKS(BinaryEvaluationCriterion):
             1D tensor of edge lengths
         """
         adj = torch.triu(adjacency_matrix, diagonal=1)
-        return self.distance_matrix[adj.bool()].flatten()
+        return self.distance_matrix[adj.bool()].flatten().unsqueeze(0)

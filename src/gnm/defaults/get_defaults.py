@@ -4,7 +4,12 @@ from jaxtyping import Float, jaxtyped
 from typing import Optional
 from typeguard import typechecked
 
+from gnm.utils import binary_checks, weighted_checks
+
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+BASE_PATH = os.path.dirname(__file__)
 
 
 def display_available_defaults():
@@ -14,16 +19,21 @@ def display_available_defaults():
     """
 
     print("=== Distance matrices ===")
-    for file in os.listdir("distance_matrices"):
-        print(file)
-
-    print("=== Binary consensus networks ===")
-    for file in os.listdir("binary_consensus_networks"):
-        print(file)
-
-    print("=== Weighted consensus networks ===")
-    for file in os.listdir("weighted_consensus_networks"):
-        print(file)
+    distance_matrices_path = os.path.join(BASE_PATH, "distance_matrices")
+    for file in os.listdir(distance_matrices_path):
+        print(file.split(".")[0])
+    print("=== Coordinates ===")
+    coordinates_path = os.path.join(BASE_PATH, "coordinates")
+    for file in os.listdir(coordinates_path):
+        print(file.split(".")[0])
+    print("=== Binary networks ===")
+    binary_consensus_networks_path = os.path.join(BASE_PATH, "binary_networks")
+    for file in os.listdir(binary_consensus_networks_path):
+        print(file.split(".")[0])
+    print("=== Weighted networks ===")
+    weighted_consensus_networks_path = os.path.join(BASE_PATH, "weighted_networks")
+    for file in os.listdir(weighted_consensus_networks_path):
+        print(file.split(".")[0])
 
 
 @jaxtyped(typechecker=typechecked)
@@ -34,12 +44,12 @@ def get_distance_matrix(
 
     Available distance matrices are:
 
-    1. [FILL IN LATER]
+    1. AAL_DISTANCES
 
     Args:
         name:
             Name of the distance matrix to be loaded in.
-            If unspecified, the [FILL IN LATER] distance matrix is loaded in.
+            If unspecified, the AAL_DISTANCES distance matrix is loaded in.
         device:
             Device to load the distance matrix on.
             If unspecified, the device is automatically set to "cuda" if available,
@@ -52,68 +62,123 @@ def get_distance_matrix(
         device = DEVICE
 
     if name is None:
-        name = "[FILL IN LATER]"
+        name = "AAL_DISTANCES"
 
-    return torch.load(f"distance_matrices/{name}.pt", map_location=device)
+    distance_matrix = torch.load(
+        os.path.join(BASE_PATH, f"distance_matrices/{name.split('.')[0].upper()}.pt"),
+        map_location=device,
+    )
+
+    weighted_checks(distance_matrix.unsqueeze(0))
+
+    return distance_matrix
 
 
 @jaxtyped(typechecker=typechecked)
-def get_binary_consensus_network(
-    name: Optional[str], device: Optional[torch.device] = None
-) -> Float[torch.Tensor, "num_nodes num_nodes"]:
-    """Loads a default binary consensus network.
+def get_coordinates(
+    name: Optional[str] = None, device: Optional[torch.device] = None
+) -> Float[torch.Tensor, "num_nodes 3"]:
+    """Loads a default set of coordinates.
 
-    Available binary consensus matrices are:
+    Available coordinate sets are:
 
-    1. [FILL IN LATER]
+    1. AAL_COORDINATES
 
     Args:
         name:
-            Name of the binary consensus network to be loaded in.
-            If unspecified, the [FILL IN LATER] binary consensus network is loaded in.
+            Name of the coordinates to be loaded in.
+            If unspecified, the AAL_COORDINATES coordinates are loaded in.
         device:
-            Device to load the binary consensus network on.
+            Device to load the coordinates on.
             If unspecified, the device is automatically set to "cuda" if available,
             otherwise "cpu".
 
     Returns:
-        The requested binary consensus network as a torch tensor.
+        The requested coordinates as a torch tensor.
     """
     if device is None:
         device = DEVICE
 
     if name is None:
-        name = "[FILL IN LATER]"
+        name = "AAL_COORDINATES"
 
-    return torch.load(f"binary_consensus_networks/{name}.pt", map_location=device)
+    return torch.load(
+        os.path.join(BASE_PATH, f"coordinates/{name.split('.')[0].upper()}.pt"),
+        map_location=device,
+    )
 
 
 @jaxtyped(typechecker=typechecked)
-def get_weighted_consensus_network(
-    name: Optional[str], device: Optional[torch.device] = None
-) -> Float[torch.Tensor, "num_nodes num_nodes"]:
-    """Loads a default weighted consensus network.
+def get_binary_network(
+    name: Optional[str] = None, device: Optional[torch.device] = None
+) -> Float[torch.Tensor, "dataset_size num_nodes num_nodes"]:
+    """Loads a default binary network.
 
-    Available weighted consensus matrices are:
+    Available binary matrices are:
 
-    1. [FILL IN LATER]
+    1. CALM_BINARY_CONSENSUS
 
     Args:
         name:
-            Name of the weighted consensus network to be loaded in.
-            If unspecified, the [FILL IN LATER] weighted consensus network is loaded in.
+            Name of the binary network to be loaded in.
+            If unspecified, the CALM_BINARY_CONSENSUS binary network is loaded in.
         device:
-            Device to load the weighted consensus network on.
+            Device to load the binary network on.
             If unspecified, the device is automatically set to "cuda" if available,
             otherwise "cpu".
 
     Returns:
-        The requested weighted consensus network as a torch tensor.
+        The requested binary network as a torch tensor.
     """
     if device is None:
         device = DEVICE
 
     if name is None:
-        name = "[FILL IN LATER]"
+        name = "CALM_BINARY_CONSENSUS"
 
-    return torch.load(f"weighted_consensus_networks/{name}.pt", map_location=device)
+    binary_networks = torch.load(
+        os.path.join(BASE_PATH, f"binary_networks/{name.split('.')[0].upper()}.pt"),
+        map_location=device,
+    )
+
+    binary_checks(binary_networks)
+
+    return binary_networks
+
+
+@jaxtyped(typechecker=typechecked)
+def get_weighted_network(
+    name: Optional[str] = None, device: Optional[torch.device] = None
+) -> Float[torch.Tensor, "dataset_size num_nodes num_nodes"]:
+    """Loads a default weighted network.
+
+    Available weighted matrices are:
+
+    1. CALM_WEIGHTED_CONSENSUS
+
+    Args:
+        name:
+            Name of the weighted network to be loaded in.
+            If unspecified, the CALM_WEIGHTED_CONSENSUS weighted network is loaded in.
+        device:
+            Device to load the weighted network on.
+            If unspecified, the device is automatically set to "cuda" if available,
+            otherwise "cpu".
+
+    Returns:
+        The requested weighted network as a torch tensor.
+    """
+    if device is None:
+        device = DEVICE
+
+    if name is None:
+        name = "CALM_WEIGHTED_CONSENSUS"
+
+    weighted_networks = torch.load(
+        os.path.join(BASE_PATH, f"weighted_networks/{name.split('.')[0].upper()}.pt"),
+        map_location=device,
+    )
+
+    weighted_checks(weighted_networks)
+
+    return weighted_networks

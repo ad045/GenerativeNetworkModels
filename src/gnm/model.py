@@ -346,6 +346,8 @@ class GenerativeNetworkModel:
                 "Number of nodes unspecified. Please pass in either a distance matrix, seed adjacency matrix, seed weight matrix, or number of nodes."
             )
 
+        print(f"Number of nodes set to {self.num_nodes}")
+
         # ---- Set the number of simulations to run ----
 
         self.num_simulations = None
@@ -377,6 +379,8 @@ class GenerativeNetworkModel:
             print("Number of simulations unspecified. Defaulting to 1.")
             self.num_simulations = 1
 
+        print(f"Number of simulations set to {self.num_simulations}")
+
         # ---- Perform reshaping and checks on the seed adjacency matrix ----
 
         if seed_adjacency_matrix is None:
@@ -386,14 +390,19 @@ class GenerativeNetworkModel:
                 dtype=torch.float32,
             )
         elif len(seed_adjacency_matrix.shape) == 2:
+            assert seed_adjacency_matrix.shape == (
+                self.num_nodes,
+                self.num_nodes,
+            ), f"Seed adjacency matrix is incorrect shape. Expected ({self.num_nodes}, {self.num_nodes}), got {seed_adjacency_matrix.shape}"
             self.seed_adjacency_matrix = seed_adjacency_matrix.unsqueeze(0).expand(
                 self.num_simulations, -1, -1
             )
         else:
-            if seed_adjacency_matrix.shape[0] != self.num_simulations:
-                raise ValueError(
-                    f"Seed adjacency matrix batch size ({seed_adjacency_matrix.shape[0]}) does not match number of simulations ({self.num_simulations})"
-                )
+            assert seed_adjacency_matrix.shape == (
+                self.num_simulations,
+                self.num_nodes,
+                self.num_nodes,
+            ), f"Seed adjacency matrix is incorrect shape. Expected ({self.num_simulations}, {self.num_nodes}, {self.num_nodes}), got {seed_adjacency_matrix.shape}"
             self.seed_adjacency_matrix = seed_adjacency_matrix
 
         binary_checks(self.seed_adjacency_matrix)
@@ -413,14 +422,22 @@ class GenerativeNetworkModel:
                 :, torch.arange(self.num_nodes), torch.arange(self.num_nodes)
             ] = 0.0
         elif len(distance_matrix.shape) == 2:
+            assert distance_matrix.shape == (
+                self.num_nodes,
+                self.num_nodes,
+            ), f"Distance matrix is incorrect shape. Expected ({self.num_nodes}, {self.num_nodes}), got {distance_matrix.shape}"
+
             self.distance_matrix = distance_matrix.unsqueeze(0).expand(
                 self.num_simulations, -1, -1
             )
+
         else:
-            if distance_matrix.shape[0] != self.num_simulations:
-                raise ValueError(
-                    f"Distance matrix batch size ({distance_matrix.shape[0]}) does not match number of simulations ({self.num_simulations})"
-                )
+            assert distance_matrix.shape == (
+                self.num_simulations,
+                self.num_nodes,
+                self.num_nodes,
+            ), f"Distance matrix is incorrect shape. Expected ({self.num_simulations}, {self.num_nodes}, {self.num_nodes}), got {distance_matrix.shape}"
+
             self.distance_matrix = distance_matrix
 
         weighted_checks(self.distance_matrix)
@@ -492,18 +509,25 @@ class GenerativeNetworkModel:
 
         # If user didn't provide seed_weight_matrix, initialise from adjacency.
         if seed_weight_matrix is None:
-            print("No weight matrix provided. Initialising from adjacency matrix.")
+            print(
+                "No seed weight matrix provided. Initialising from seed adjacency matrix."
+            )
             seed_weight_matrix = self.adjacency_matrix.clone()
+        elif len(seed_weight_matrix.shape) == 2:
+            assert seed_weight_matrix.shape == (
+                self.num_nodes,
+                self.num_nodes,
+            ), f"Distance matrix is incorrect shape. Expected ({self.num_nodes}, {self.num_nodes}), got {seed_weight_matrix.shape}"
+
+            seed_weight_matrix = seed_weight_matrix.unsqueeze(0).expand(
+                self.num_simulations, -1, -1
+            )
         else:
-            if len(seed_weight_matrix.shape) == 2:
-                print("exanding seed weight matrix")
-                seed_weight_matrix = seed_weight_matrix.unsqueeze(0).expand(
-                    self.num_simulations, -1, -1
-                )
-            elif seed_weight_matrix.shape[0] != self.num_simulations:
-                raise ValueError(
-                    f"Seed weight matrix batch size ({seed_weight_matrix.shape[0]}) does not match number of simulations ({self.num_simulations})"
-                )
+            assert seed_weight_matrix.shape == (
+                self.num_simulations,
+                self.num_nodes,
+                self.num_nodes,
+            ), f"Distance matrix is incorrect shape. Expected ({self.num_simulations}, {self.num_nodes}, {self.num_nodes}), got {seed_weight_matrix.shape}"
 
         weighted_checks(seed_weight_matrix)
 

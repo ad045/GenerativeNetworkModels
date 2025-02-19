@@ -47,8 +47,10 @@ def binary_clustering_coefficients(
         dim2=-1,
     )
 
-    clustering_coefficients = number_of_triangles / number_of_pairs
-    return clustering_coefficients
+    clustering = torch.zeros_like(number_of_triangles)
+    mask = number_of_pairs > 0
+    clustering[mask] = 2 * number_of_triangles[mask] / number_of_pairs[mask]
+    return clustering
 
 
 @jaxtyped(typechecker=typechecked)
@@ -155,9 +157,8 @@ def binary_betweenness_centrality(
     Returns:
         torch.Tensor: Array of betweenness centralities for each node in each network.
     """
-    binary_checks(matrices)
-
     graphs = [nx.from_numpy_array(matrix.cpu().numpy()) for matrix in matrices]
-    return torch.tensor(
-        [np.array(list(nx.betweenness_centrality(g).values())) for g in graphs]
-    )
+    betweenness_values = [
+        np.array(list(nx.betweenness_centrality(g).values())) for g in graphs
+    ]
+    return torch.tensor(np.array(betweenness_values), dtype=matrices.dtype)

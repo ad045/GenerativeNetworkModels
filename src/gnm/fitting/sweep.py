@@ -1,6 +1,7 @@
 from gnm.evaluation import (
     BinaryEvaluationCriterion,
     WeightedEvaluationCriterion,
+    CompositeCriterion,
 )
 import torch
 from typing import List, Iterator, Optional, Any, Dict, Union
@@ -240,8 +241,17 @@ class Results:
 @jaxtyped(typechecker=typechecked)
 def perform_run(
     run_config: RunConfig,
-    binary_evaluations: Optional[List[BinaryEvaluationCriterion]],
-    weighted_evaluations: Optional[List[WeightedEvaluationCriterion]],
+    binary_evaluations: Optional[
+        List[Union[BinaryEvaluationCriterion, CompositeCriterion]]
+    ] = None,
+    weighted_evaluations: Optional[
+        List[
+            Union[
+                WeightedEvaluationCriterion,
+                CompositeCriterion,
+            ]
+        ]
+    ] = None,
     real_binary_matrices: Optional[
         Float[torch.Tensor, "num_real_binary_networks num_nodes num_nodes"]
     ] = None,
@@ -269,6 +279,18 @@ def perform_run(
     Returns:
         Dictionary with keys "run_config" and "results" containing the run configuration and results
     """
+    if binary_evaluations is not None:
+        for evaluation in binary_evaluations:
+            assert (
+                evaluation.accepts == "binary"
+            ), f"Binary evaluations must accept binary matrices. Evaluation {evaluation} accepts {evaluation.accepts}."
+
+    if weighted_evaluations is not None:
+        for evaluation in weighted_evaluations:
+            assert (
+                evaluation.accepts == "weighted"
+            ), f"Weighted evaluations must accept weighted matrices. Evaluation {evaluation} accepts {evaluation.accepts}."
+
     if real_binary_matrices is not None:
         binary_checks(real_binary_matrices)
     if real_weighted_matrices is not None:
@@ -329,8 +351,17 @@ def perform_run(
 @jaxtyped(typechecker=typechecked)
 def perform_sweep(
     sweep_config: SweepConfig,
-    binary_evaluations: Optional[List[BinaryEvaluationCriterion]] = None,
-    weighted_evaluations: Optional[List[WeightedEvaluationCriterion]] = None,
+    binary_evaluations: Optional[
+        List[Union[BinaryEvaluationCriterion, CompositeCriterion]]
+    ] = None,
+    weighted_evaluations: Optional[
+        List[
+            Union[
+                WeightedEvaluationCriterion,
+                CompositeCriterion,
+            ]
+        ]
+    ] = None,
     real_binary_matrices: Optional[
         Float[torch.Tensor, "num_real_binary_networks num_nodes num_nodes"]
     ] = None,

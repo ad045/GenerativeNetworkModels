@@ -235,10 +235,10 @@ class CorrelationCriterion(EvaluationCriterion, ABC):
         real_statistics = self._get_graph_statistics(real_matrices)
 
         smoothed_synthetic_statistics = torch.matmul(
-            self.smoothing_matrix, synthetic_statistics
+            synthetic_statistics, self.smoothing_matrix
         )  # Shape [num_synthetic_networks num_nodes]
         smoothed_real_statistics = torch.matmul(
-            self.smoothing_matrix, real_statistics
+            real_statistics, self.smoothing_matrix
         )  # Shape [num_real_networks num_nodes]
 
         # Compute correlation coefficients between all pairs of distributions
@@ -252,15 +252,15 @@ class CorrelationCriterion(EvaluationCriterion, ABC):
         )
 
         # Compute standard deviations
-        real_std = torch.sqrt((real_centered**2).sum(dim=1, keepdim=True))
-        synth_std = torch.sqrt((synth_centered**2).sum(dim=1, keepdim=True))
+        real_std = torch.sqrt((real_centered**2).sum(dim=1, keepdim=True) + 1e-12)
+        synth_std = torch.sqrt((synth_centered**2).sum(dim=1, keepdim=True) + 1e-12)
 
         # Normalize the data
-        real_normalized = real_centered / real_std
-        synth_normalized = synth_centered / synth_std
+        real_normalised = real_centered / (real_std + 1e-12)
+        synth_normalised = synth_centered / (synth_std + 1e-12)
 
         # Compute correlation matrix using matrix multiplication
-        corr_matrix = torch.mm(synth_normalized, real_normalized.t())
+        corr_matrix = torch.mm(synth_normalised, real_normalised.t())
 
         # Divide by number of nodes to get Pearson R
         corr_matrix = corr_matrix / smoothed_real_statistics.shape[1]

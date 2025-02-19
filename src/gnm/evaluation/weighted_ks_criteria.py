@@ -42,7 +42,7 @@ class WeightedNodeStrengthKS(KSCriterion, WeightedEvaluationCriterion):
             torch.Tensor: Vector of node strengths
         """
         if self.normalise:
-            return node_strengths(matrices / matrices.max(dim=-1, keepdim=True))
+            return node_strengths(matrices / matrices.amax(dim=-1, keepdim=True))
         else:
             return node_strengths(matrices)
 
@@ -87,7 +87,7 @@ class WeightedBetweennessKS(KSCriterion, WeightedEvaluationCriterion):
             torch.Tensor: array of weighted betweenness centralities
         """
         if self.normalise:
-            to_graph = matrices / matrices.max(dim=-1, keepdim=True)
+            to_graph = matrices / matrices.amax(dim=-1, keepdim=True)
         else:
             to_graph = matrices
 

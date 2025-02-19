@@ -34,14 +34,14 @@ class DegreeCorrelation(CorrelationCriterion, BinaryEvaluationCriterion):
         return matrices.sum(dim=-1)
 
 
-class ClusteringCorrelation(CorrelationCriterion):
+class ClusteringCorrelation(CorrelationCriterion, BinaryEvaluationCriterion):
 
     def __init__(self, smoothing_matrix: Float[torch.Tensor, "num_nodes num_nodes"]):
         CorrelationCriterion.__init__(self, smoothing_matrix)
         BinaryEvaluationCriterion.__init__(self)
 
     def __str__(self) -> str:
-        return "Binary degree correlation"
+        return "Clustering correlation"
 
     @jaxtyped(typechecker=typechecked)
     def _get_graph_statistics(
@@ -59,7 +59,7 @@ class ClusteringCorrelation(CorrelationCriterion):
         return binary_clustering_coefficients(matrices)
 
 
-class BetweennessCorrelation(CorrelationCriterion):
+class BetweennessCorrelation(CorrelationCriterion, BinaryEvaluationCriterion):
 
     def __init__(self, smoothing_matrix: Float[torch.Tensor, "num_nodes num_nodes"]):
         CorrelationCriterion.__init__(self, smoothing_matrix)

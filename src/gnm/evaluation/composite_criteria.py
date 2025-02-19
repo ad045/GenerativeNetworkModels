@@ -104,7 +104,7 @@ class WeightedSumCriteria(CompositeCriterion):
                 List of weights for each criterion
         """
         self.weights = weights
-        self.super().__init__(criteria)
+        super().__init__(criteria)
 
     def __str__(self) -> str:
         criteria_str = ", ".join(
