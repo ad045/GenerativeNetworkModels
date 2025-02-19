@@ -6,7 +6,7 @@ from gnm.evaluation import (
 import torch
 from typing import List, Iterator, Optional, Any, Dict, Union
 from itertools import product
-from jaxtyping import Float, jaxtyped
+from jaxtyping import Float, Int, jaxtyped
 from typeguard import typechecked
 from dataclasses import dataclass, field
 
@@ -99,7 +99,7 @@ class WeightedSweepParameters:
 @dataclass
 class RunConfig:
     binary_parameters: BinaryGenerativeParameters
-    num_simulations: int
+    num_simulations: Optional[int] = None
     seed_adjacency_matrix: Optional[
         Union[
             Float[torch.Tensor, "num_simulations num_nodes num_nodes"],
@@ -125,7 +125,7 @@ class RunConfig:
 @dataclass
 class SweepConfig:
     binary_sweep_parameters: BinarySweepParameters
-    num_simulations: int
+    num_simulations: Optional[int] = (None,)
     seed_adjacency_matrix: Optional[
         List[
             Union[
@@ -223,7 +223,7 @@ class SweepConfig:
 
 @dataclass
 class Results:
-    added_edges: Float[torch.Tensor, "num_binary_updates num_simulations 2"]
+    added_edges: Int[torch.Tensor, "num_binary_updates num_simulations 2"]
     adjacency_snapshots: Float[
         torch.Tensor, "num_binary_updates num_simulations num_nodes num_nodes"
     ]
@@ -236,6 +236,12 @@ class Results:
     weighted_evaluations: Dict[
         str, Float[torch.Tensor, "num_real_weighted_networks num_simulations"]
     ]
+
+
+@dataclass
+class Experiment:
+    run_config: RunConfig
+    results: Results
 
 
 @jaxtyped(typechecker=typechecked)
@@ -259,7 +265,7 @@ def perform_run(
         Float[torch.Tensor, "num_real_weighted_networks num_nodes num_nodes"]
     ] = None,
     wandb_logging: bool = False,
-) -> Dict[str, Any]:
+) -> Experiment:
     """Perform a single run of the generative network model.
 
     Args:
@@ -345,7 +351,7 @@ def perform_run(
         weighted_evaluations=weighted_evaluations_results,
     )
 
-    return {"run_config": run_config, "results": results}
+    return Experiment(run_config=run_config, results=results)
 
 
 @jaxtyped(typechecker=typechecked)
@@ -369,7 +375,7 @@ def perform_sweep(
         Float[torch.Tensor, "num_real_weighted_networks num_nodes num_nodes"]
     ] = None,
     wandb_logging: bool = False,
-) -> List[Dict[str, Any]]:
+) -> List[Experiment]:
     """Perform a parameter sweep over the specified configuration.
 
     Args:
@@ -389,7 +395,7 @@ def perform_sweep(
     run_results = []
 
     for run_config in sweep_config:
-        run_dict = perform_run(
+        experiment = perform_run(
             run_config=run_config,
             binary_evaluations=binary_evaluations,
             weighted_evaluations=weighted_evaluations,
@@ -398,6 +404,6 @@ def perform_sweep(
             wandb_logging=wandb_logging,
         )
 
-        run_results.append(run_dict)
+        run_results.append(experiment)
 
     return run_results

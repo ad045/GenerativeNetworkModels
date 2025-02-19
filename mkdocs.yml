@@ -42,6 +42,7 @@ nav:
     - model: api-reference/model.md
     - generative_rules: api-reference/generative-rules.md
     - weight_criteria: api-reference/weight-criteria.md
+    - evaluation: api-reference/evaluation.md
     - fitting: api-reference/fitting.md
     - defaults: api-reference/defaults.md
     - utils: api-reference/utils.md

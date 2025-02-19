@@ -16,7 +16,7 @@ from gnm.utils import binary_checks, weighted_checks
 
 @dataclass
 class BinaryGenerativeParameters:
-    """Parameters controlling the binary generative network model's evolution.
+    r"""Parameters controlling the binary generative network model's evolution.
 
     This dataclass encapsulates the parameters that determine how a binary generative
     network model grows and forms connections. The parameters control three main aspects
@@ -132,7 +132,7 @@ class BinaryGenerativeParameters:
 
 @dataclass
 class WeightedGenerativeParameters:
-    """Parameters controlling the weighted generative network model's evolution.
+    r"""Parameters controlling the weighted generative network model's evolution.
 
     This dataclass encapsulates the parameters that determine how weights evolve in a
     weighted generative network model. While the binary parameters control network
@@ -212,7 +212,7 @@ class WeightedGenerativeParameters:
 
 
 class GenerativeNetworkModel:
-    """A class implementing both binary and weighted Generative Network Models (GNM).
+    r"""A class implementing both binary and weighted Generative Network Models (GNM).
 
     This class provides a unified framework for growing networks using both binary and weighted
     generative processes. The model works in two phases:
@@ -299,7 +299,7 @@ class GenerativeNetworkModel:
             ]
         ] = None,
     ):
-        """The initialisation process for the Generative Network Model:
+        r"""The initialisation process for the Generative Network Model:
 
         1. Validates input matrices (symmetry, binary values, etc.).
         2. Stores the binary parameters and optionally the weighted parameters.
@@ -481,7 +481,7 @@ class GenerativeNetworkModel:
             ]
         ] = None,
     ):
-        """Initialise the weight matrix and optimiser for the weighted GNM.
+        r"""Initialise the weight matrix and optimiser for the weighted GNM.
         If weighted parameters are not passed in during initialisation, this method
         must be called before any weighted updates can be performed.
 
@@ -563,7 +563,7 @@ class GenerativeNetworkModel:
             torch.Tensor, "{self.num_simulations} {self.num_nodes} {self.num_nodes}"
         ],  # updated adjacency matrices
     ]:
-        """
+        r"""
         Performs one update step of the adjacency matrix for the binary GNM.
         To perform an update, the model calculates the unnormalised wiring probabilities for each edge
         not currently present within the adjacency matrix (i.e., all notes with $A_{ij} = 0$).
@@ -691,13 +691,14 @@ class GenerativeNetworkModel:
     ) -> Float[
         torch.Tensor, "{self.num_simulations} {self.num_nodes} {self.num_nodes}"
     ]:
-        """
+        r"""
         Performs one update step of the weight matrix $W_{ij}$ for the weighted GNM. The weights are updated
         using gradient descent on the specified optimisation criterion, with the learning rate $\\alpha$:
         $$
         W_{ij} \gets W_{ij} - \\alpha \\frac{\partial L}{\partial W_{ij}}
         $$
         Following the update step, the following postprocessing steps are performed:
+
         1. Symmetry: The weight matrix is made symmetric by averaging with its transpose, $W \gets (1/2)(W + W^T)$.
         2. Clipping: The weights are clipped to the specified bounds $W_{\\rm lower} \leq W_{ij} \leq W_{\\rm upper}$.
         3. Consistency with binary adjacency: All weights where the adjacency matrix is zero are set to zero, so that if $A_{ij} = 0$ then $W_{ij} = 0$.
@@ -778,7 +779,7 @@ class GenerativeNetworkModel:
             ]  # Weight snapshots
         ],
     ]:
-        """Trains the network for a specified number of iterations.
+        r"""Trains the network for a specified number of iterations.
         At each iteration, a number of binary updates and weighted updates are performed.
 
         Args:
