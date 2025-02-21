@@ -21,6 +21,7 @@ plugins:
             heading_level: 2
             docstring_style: google  
             merge_init_into_class: true
+  - mkdocs-jupyter
 
 markdown_extensions:
   - pymdownx.arithmatex:
@@ -37,6 +38,7 @@ nav:
   - User Guide: user-guide.md
   - Examples scripts:
     - Overview: examples/index.md
+    - Parameter sweep: examples/sweep_example.ipynb 
   - API Reference: 
     - Overview: api-reference/index.md
     - model: api-reference/model.md

@@ -4,8 +4,9 @@ from itertools import product
 from jaxtyping import Float, Int, jaxtyped
 from typeguard import typechecked
 from dataclasses import dataclass, field
+import gc
 
-import wandb
+# import wandb
 
 from gnm import (
     BinaryGenerativeParameters,
@@ -214,16 +215,8 @@ class SweepConfig:
 
             yield run_config
 
-
 @dataclass
-class Results:
-    added_edges: Int[torch.Tensor, "num_binary_updates num_simulations 2"]
-    adjacency_snapshots: Float[
-        torch.Tensor, "num_binary_updates num_simulations num_nodes num_nodes"
-    ]
-    weight_snapshots: Optional[
-        Float[torch.Tensor, "num_weight_updates num_simulations num_nodes num_nodes"]
-    ]
+class EvaluationResults:
     binary_evaluations: Dict[
         str, Float[torch.Tensor, "num_real_binary_networks num_simulations"]
     ]
@@ -233,7 +226,37 @@ class Results:
 
 
 @dataclass
+class RunHistory:
+    added_edges: Int[torch.Tensor, "num_binary_updates num_simulations 2"]
+    adjacency_snapshots: Float[
+        torch.Tensor, "num_binary_updates num_simulations num_nodes num_nodes"
+    ]
+    weight_snapshots: Optional[
+        Float[torch.Tensor, "num_weight_updates num_simulations num_nodes num_nodes"]
+    ]
+
+@dataclass
 class Experiment:
     run_config: RunConfig
-    model: GenerativeNetworkModel
-    results: Results
+    evaluation_results: EvaluationResults
+    model: Optional[GenerativeNetworkModel] = None
+    run_history: Optional[RunHistory] = None
+
+    def to_device(self, device: Union[torch.device, str]):
+        """Move the model to the specified device.
+
+        Args:
+            device: Device to move the model to.
+        """
+        self.model.to_device(device)
+        self.results.adjacency_snapshots = self.results.adjacency_snapshots.to(device)
+        self.results.weight_snapshots = self.results.weight_snapshots.to(device) if self.results.weight_snapshots is not None else None
+        self.results.added_edges = self.results.added_edges.to(device)
+        for key, value in self.results.binary_evaluations.items():
+            self.results.binary_evaluations[key] = value.to(device)
+        for key, value in self.results.weighted_evaluations.items():
+            self.results.weighted_evaluations[key] = value.to(device)
+
+        gc.collect()
+        torch.cuda.empty_cache()
+        

@@ -26,7 +26,7 @@ class GenerativeRule(ABC):
         num_nodes = adjacency_matrix.shape[-1]
         diagonal = torch.diagonal(adjacency_matrix, dim1=-2, dim2=-1)
         assert torch.allclose(
-            diagonal, torch.zeros(*batch_shape, num_nodes)
+            diagonal, torch.zeros(*batch_shape, num_nodes, device=adjacency_matrix.device)
         ), "Adjacency matrices should not have self-connections."
 
     @jaxtyped(typechecker=typechecked)

@@ -4,6 +4,8 @@ from typeguard import typechecked
 
 from .evaluation_base import CompositeCriterion, EvaluationCriterion
 
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 class MaxCriteria(CompositeCriterion):
     """Combines multiple evaluation criteria by taking their maximum value.

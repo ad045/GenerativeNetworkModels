@@ -7,6 +7,7 @@ from gnm.utils import ks_statistic
 
 from gnm.utils import binary_checks, weighted_checks
 
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class EvaluationCriterion(ABC):
     """Base abstract class for network evaluation criteria.
@@ -20,6 +21,9 @@ class EvaluationCriterion(ABC):
         Subclasses must implement the `__call__` method to define their specific
         evaluation criterion.
     """
+
+    def __init__(self, device: torch.device = None):
+        self.device = DEVICE if device is None else device
 
     @abstractmethod
     def __str__(self) -> str:
@@ -47,7 +51,7 @@ class EvaluationCriterion(ABC):
         """
         self._pre_call(synthetic_matrices)
         self._pre_call(real_matrices)
-        return self._evaluate(synthetic_matrices, real_matrices)
+        return self._evaluate(synthetic_matrices, real_matrices).to(DEVICE)
 
     @abstractmethod
     @jaxtyped(typechecker=typechecked)
