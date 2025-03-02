@@ -1,3 +1,16 @@
+r"""Core implementation of generative network models.
+
+This script implements the core classes for generative network models, including both binary
+and weighted networks. It provides a unified framework for growing networks using generative
+processes that combine physical distance constraints, topological similarity, and developmental
+timing to create realistic brain-like networks.
+
+The main classes are:
+- BinaryGenerativeParameters: Controls how binary networks grow
+- WeightedGenerativeParameters: Controls how weights evolve in weighted networks
+- GenerativeNetworkModel: The main class implementing the generative network model
+"""
+
 from jaxtyping import Float, jaxtyped, Int
 from typing import Optional, Tuple, Union, Any
 from typeguard import typechecked
@@ -69,15 +82,28 @@ class BinaryGenerativeParameters:
             The relationship between the generative rule output $K_{ij}$ and preferential wiring factor $k_{ij}$.
             Must be one of ['powerlaw', 'exponential'].
 
-        prob_offset (float, optional):
-            Small constant added to unnormalized probabilities to prevent division by zero.
-            Defaults to 1e-6.
+        heterochronicity_relationship_type (str):
+            The relationship between heterochronicity $H_{ij}$ and developmental factor $h_{ij}$.
+            Must be one of ['powerlaw', 'exponential'].
 
         generative_rule (GenerativeRule):
             The generative rule that transforms the adjacency matrix to a matching index matrix.
             This computes the preferential wiring rule $K_{ij}$ from the adjacency matrix $A_{ij}$.
 
+        num_iterations (int):
+            The number of iterations to train the model for.
+
+        prob_offset (float, optional):
+            Small constant added to unnormalized probabilities to prevent division by zero.
+            Defaults to 1e-6.
+
+        binary_updates_per_iteration (int, optional):
+            The number of binary update steps to do per model iteration. Defaults to 1.
+
+
     Examples:
+        >>> from gnm.generative_rules import MatchingIndex
+        >>> from gnm import BinaryGenerativeParameters
         >>> binary_parameters = BinaryGenerativeParameters(
         ...     eta=1.0,
         ...     gamma=0.5,
@@ -85,11 +111,12 @@ class BinaryGenerativeParameters:
         ...     distance_relationship_type='powerlaw',
         ...     preferential_relationship_type='exponential',
         ...     heterochronicity_relationship_type='powerlaw',
-        ...     generative_rule=MatchingIndex(divisor='mean')
+        ...     generative_rule=MatchingIndex(divisor='mean'),
+        ...     num_iterations=400
         ... )
 
     See Also:
-        - GenerativeRule: A base class for generative rules that transform an adjacency matrix $A_{ij}$ into a preferential wiring matrix $K_{ij}$
+        - [`generative_rules.GenerativeRule`][gnm.generative_rules.GenerativeRule]: A base class for generative rules that transform an adjacency matrix $A_{ij}$ into a preferential wiring matrix $K_{ij}$
     """
 
     eta: float
@@ -180,20 +207,25 @@ class WeightedGenerativeParameters:
             When True, gradients are flipped to ascend rather than descend.
             Defaults to False.
 
+        weighted_updates_per_iteration (int, optional):
+            The number of weight update steps to do per model iteration. Defaults to 1.
+
+
     Examples:
+        >>> from gnm.weight_criteria import Communicability
+        >>> from gnm import WeightedGenerativeParameters
         >>> communicability_optimisation_criterion = Communicability(normalisation=False, omega=1.0)
         >>> weighted_parameters = WeightedGenerativeParameters(
         ...     alpha=0.01,
         ...     optimisation_criterion=communicability_optimisation_criterion,
         ...     weight_lower_bound=0.0,
         ...     weight_upper_bound=1.0,
-        ...     maximise_criterion=False
+        ...     maximise_criterion=False,
+        ...     weight_updates_per_iteration=100
         ... )
 
     See Also:
-        - OptimisationCriterion: Base class for optimisation objectives
-        - DistanceWeightedCommunicability: optimisation criterion based on network communication
-        - GenerativeNetworkModel.weighted_update: Method that uses these parameters
+        - [`weight_criteria.OptimisationCriterion`][gnm.weight_criteria.OptimisationCriterion]: Base class for optimisation criteria for weighted networks
     """
 
     alpha: float
@@ -220,16 +252,14 @@ class GenerativeNetworkModel:
     This class provides a unified framework for growing networks using both binary and weighted
     generative processes. The model works in two phases:
 
-    1. Binary Growth Phase:
-       The network's topology is determined by iteratively adding edges to an adjacency matrix
-       $A_{ij}$ based on three factors (a) Physical distance between nodes, (b) Topological similarity
-       (through the generative rule), (c) Developmental timing (heterochronicity).
-       For more details, see (REF BinaryGenerativeParameters and binary_update method).
+    **Binary Growth Phase:**
+    The network's topology is determined by iteratively adding edges to an adjacency matrix
+    $A_{ij}$ based on three factors (a) Physical distance between nodes, (b) Topological similarity
+    (through the generative rule), (c) Developmental timing (heterochronicity).
 
-    2. Weight Optimisation Phase (Optional):
-       If weighted parameters are provided, the model also optimizes edge weights $W_{ij}$
-       through gradient descent on a loss, $L(W)$.
-       For more details, see (REF WeightedGenerativeParameters and weighted_update method).
+    **Weight Optimisation Phase (Optional):**
+    If weighted parameters are provided, the model also optimizes edge weights $W_{ij}$
+    through gradient descent on a loss, $L(W)$.
 
     Attributes:
         num_simulations (int):
@@ -256,20 +286,34 @@ class GenerativeNetworkModel:
             Optimiser for weight updates.
 
     Examples:
+        >>> from gnm import BinaryGenerativeParameters, WeightedGenerativeParameters, GenerativeNetworkModel
+        >>> from gnm.defaults import get_distance_matrix
+        >>> from gnm.generative_rules import Neighbours
+        >>> from gnm.weight_criteria import WeightedDistance
         >>> binary_parameters = BinaryGenerativeParameters(
         ...     eta=1.0,
         ...     gamma=-0.5,
         ...     lambdah=1.0,
-        ...     distance_relationship_type='powerlaw',
-        ...     preferential_relationship_type='exponential',
+        ...     distance_relationship_type='exponential',
+        ...     preferential_relationship_type='powerlaw',
         ...     heterochronicity_relationship_type='powerlaw',
-        ...     generative_rule=MatchingIndex(divisor='mean')
+        ...     generative_rule=Neighbours(),
+        ...     num_iterations=250,
+        ...     binary_updates_per_iteration=1,
         ... )
-        >>> seed_adjacency_matrix = torch.zeros((10, 10))
+        >>> weighted_parameters = WeightedGenerativeParameters(
+        ...     alpha=0.003,
+        ...     optimisation_criterion=WeightedDistance(),
+        ...     weighted_updates_per_iteration=200,
+        ... )
+        ... distance_matrix = get_distance_matrix()
         >>> model = GenerativeNetworkModel(
         ...     binary_parameters=binary_parameters,
-        ...     seed_adjacency_matrix=seed_adjacency_matrix
+        ...     num_simulations=100, # Run 100 networks in parallel
+        ...     distance_matrix=get_distance_matrix(),
+        ...     weighted_parameters=weighted_parameters,
         ... )
+        >>> model.run_model()
 
     See Also:
         - BinaryGenerativeParameters: Parameters controlling binary network growth
@@ -797,12 +841,16 @@ class GenerativeNetworkModel:
     @jaxtyped(typechecker=typechecked)
     def run_model(
         self,
-        heterochronous_matrix: Union[
-            Float[
-                torch.Tensor,
-                "num_binary_updates {self.num_simulations} {self.num_nodes} {self.num_nodes}",
-            ],
-            Float[torch.Tensor, "num_binary_updates {self.num_nodes} {self.num_nodes}"],
+        heterochronous_matrix: Optional[
+            Union[
+                Float[
+                    torch.Tensor,
+                    "num_binary_updates {self.num_simulations} {self.num_nodes} {self.num_nodes}",
+                ],
+                Float[
+                    torch.Tensor, "num_binary_updates {self.num_nodes} {self.num_nodes}"
+                ],
+            ]
         ] = None,
     ) -> Tuple[
         Int[

@@ -1,8 +1,16 @@
 # Generative Rules
 
+::: gnm.generative_rules
+    options:
+      members: false
+      show_root_heading: true
+      show_root_full_path: false
+
 ::: gnm.generative_rules.GenerativeRule
     options:
-        members: []
+        members: 
+            - __call__
+            - _rule
 
 ## Homophily-Based Rules
 
