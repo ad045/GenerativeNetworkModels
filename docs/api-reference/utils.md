@@ -1,5 +1,11 @@
 # gnm.utils
 
+::: gnm.utils
+
+## Controls
+
+::: gnm.utils.get_control
+
 ## Statistics
 
 ::: gnm.utils.ks_statistic

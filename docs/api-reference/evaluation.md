@@ -1,26 +1,56 @@
 # gnm.evaluation
 
+::: gnm.evaluation
+    options:
+      members: false
+      show_root_heading: true
+      show_root_full_path: false
+
 ## Evaluation 
 
 ::: gnm.evaluation.EvaluationCriterion
     options:
         members:
+            - __init__
+            - __str__
             - __call__
+            - _pre_call
+            - _evaluate
+
+
+## Criterion types
+
+::: gnm.evaluation.BinaryEvaluationCriterion
+    options:
+        members:
+            - _pre_call
+
+::: gnm.evaluation.WeightedEvaluationCriterion
+    options:
+        members:
+            - _pre_call
 
 ::: gnm.evaluation.KSCriterion
     options:
         members:
-            - __call__
+            - _get_graph_statistics
 
 ::: gnm.evaluation.CorrelationCriterion
     options:
         members:
-            - __call__ 
+            - __init__
+            - _get_graph_statistics 
+
+## Composite Criteria
+
+::: gnm.evaluation.CompositeCriterion
+    options: 
+        members:
+            - __init__
 
 ::: gnm.evaluation.MaxCriteria
     options:
-        members:
-            - __call__
+        members: []
 
 ::: gnm.evaluation.MeanCriteria
     options:
@@ -28,13 +58,11 @@
 
 ::: gnm.evaluation.WeightedSumCriteria
     options:
-        members:
-            - __init__
-            - __call__
+        members: []
 
 ### Binary KS Criteria
 
-::: gnm.evaluation.BetweennessKS
+::: gnm.evaluation.DegreeKS
     options:
         members: []
 
@@ -42,7 +70,7 @@
     options:
         members: []
 
-::: gnm.evaluation.DegreeKS
+::: gnm.evaluation.BetweennessKS
     options:
         members: []
 
@@ -71,12 +99,15 @@
 
 ::: gnm.evaluation.DegreeCorrelation
     options:
-        members: []
+        members: 
+            - __init__
     
 ::: gnm.evaluation.ClusteringCorrelation
     options:
-        members: []
+        members: 
+            - __init__
     
 ::: gnm.evaluation.BetweennessCorrelation
     options:
-        members: []
+        members:
+            - __init__ 

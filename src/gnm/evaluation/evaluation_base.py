@@ -1,3 +1,9 @@
+r"""Base classes for network evaluation criteria.
+
+This module defines the abstract base classes and common functionality for
+building evaluation criteria to compare synthetic and real networks.
+"""
+
 import torch
 from jaxtyping import Float, jaxtyped
 from typeguard import typechecked
@@ -9,26 +15,39 @@ from gnm.utils import binary_checks, weighted_checks
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
 class EvaluationCriterion(ABC):
-    """Base abstract class for network evaluation criteria.
+    r"""Abstract base class for network evaluation criteria.
 
     This class provides a framework for defining various criteria to evaluate the similarity
     between a synthetic (generated) network and a real (target) network. Each criterion
     computes a dissimilarity measure between the two networks based on specific network
     properties.
 
-    Note:
-        Subclasses must implement the `__call__` method to define their specific
-        evaluation criterion.
+    Subclasses must implement:
+
+    1. `_pre_call` to perform validation checks on input matrices.
+    2. `_evaluate` to compute the actual dissimilarity measure.
+
+    See Also:
+        - [`evaluation.BinaryEvaluationCriterion`][gnm.evaluation.BinaryEvaluationCriterion]: Base class for binary network evaluations.
+        - [`evaluation.WeightedEvaluationCriterion`][gnm.evaluation.WeightedEvaluationCriterion]: Base class for weighted network evaluations.
+        - [`fitting.perform_evalutions`][gnm.fitting.perform_evaluations]: Function to evaluate networks using an evaluation criterion.
+        - [`fitting.optimise_evaluation`][gnm.fitting.optimise_evaluation]: Function to optimise model parameters using an evaluation.
     """
 
     def __init__(self, device: torch.device = None):
+        r"""
+        Args:
+            device:
+                PyTorch device to use for computations. If None, uses CUDA if available,
+                otherwise CPU.
+        """
         self.device = DEVICE if device is None else device
 
-    @abstractmethod
     def __str__(self) -> str:
-        """Return a string representation of the criterion."""
-        pass
+        r"""Return a string representation of the criterion."""
+        return self.__class__.__name__
 
     @jaxtyped(typechecker=typechecked)
     def __call__(
@@ -38,16 +57,22 @@ class EvaluationCriterion(ABC):
         ],
         real_matrices: Float[torch.Tensor, "num_real_networks num_nodes num_nodes"],
     ) -> Float[torch.Tensor, "num_synthetic_networks num_real_networks"]:
-        """Compute the dissimilarity between two networks.
+        r"""Compute the dissimilarity between synthetic and real networks.
+
+        This method validates the input matrices and then calls the _evaluate method
+        to compute the actual dissimilarity measure.
 
         Args:
             synthetic_matrices:
-                Batch of adjacency/weight matrices of the synthetic networks
+                Batch of adjacency/weight matrices of the synthetic networks with shape
+                [num_synthetic_networks, num_nodes, num_nodes]
             real_matrices:
-                Adjacency/weight matrices of the real networks
+                Adjacency/weight matrices of the real networks with shape
+                [num_real_networks, num_nodes, num_nodes]
 
         Returns:
-            Tensor of dissimilarity values (higher values indicate greater dissimilarity)
+            Tensor of dissimilarity values with shape [num_synthetic_networks, num_real_networks],
+            where higher values indicate greater dissimilarity
         """
         self._pre_call(synthetic_matrices)
         self._pre_call(real_matrices)
@@ -58,11 +83,14 @@ class EvaluationCriterion(ABC):
     def _pre_call(
         self, matrices: Float[torch.Tensor, "num_network num_nodes num_nodes"]
     ):
-        """Perform checks on matrices before they are evaluated.
+        r"""Perform validation checks on input matrices.
+
+        This abstract method should be implemented by subclasses to ensure that input
+        matrices meet the required criteria (*e.g.*, binary values, symmetry).
 
         Args:
             matrices:
-                Adjacency/weight matrices of the network
+                Adjacency/weight matrices with shape [num_networks, num_nodes, num_nodes]
         """
         pass
 
@@ -75,77 +103,114 @@ class EvaluationCriterion(ABC):
         ],
         real_matrices: Float[torch.Tensor, "num_real_networks num_nodes num_nodes"],
     ) -> Float[torch.Tensor, "num_synthetic_networks num_real_networks"]:
+        r"""Compute the actual dissimilarity measure between networks.
+
+        This abstract method should be implemented by subclasses to define how
+        to calculate the dissimilarity between synthetic and real networks.
+
+        Args:
+            synthetic_matrices:
+                Batch of adjacency/weight matrices of the synthetic networks with shape
+                [num_synthetic_networks, num_nodes, num_nodes]
+            real_matrices:
+                Adjacency/weight matrices of the real networks with shape
+                [num_real_networks, num_nodes, num_nodes]
+
+        Returns:
+            Tensor of dissimilarity values with shape [num_synthetic_networks, num_real_networks]
+        """
         pass
 
 
 class BinaryEvaluationCriterion(EvaluationCriterion, ABC):
+    r"""Base class for evaluation criteria specialized for binary networks.
+
+    This class extends EvaluationCriterion to specifically handle binary (unweighted)
+    networks. It implements validation checks to ensure input matrices contain only
+    binary values (0 or 1), are symmetric, and contain no self-connections.
+
+    Subclasses must implement the `_evaluate` method to compute the actual dissimilarity measure.
+
+    See Also:
+        - [`evaluation.EvaluationCriterion`][gnm.evaluation.EvaluationCriterion]: Parent abstract base class.
+        - [`evaluation.WeightedEvaluationCriterion`][gnm.evaluation.WeightedEvaluationCriterion]: Base class for weighted network evaluations.
+    """
+
     def __init__(self):
+        r"""The initialisation method sets the accepts attribute to 'binary' to indicate that this criterion
+        works with binary networks.
+        """
         self.accepts = "binary"
 
     @jaxtyped(typechecker=typechecked)
     def _pre_call(
         self, matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"]
     ):
-        """Perform checks on matrices before they are evaluated.
+        r"""Perform validation checks on binary matrices.
+
+        Validates that the input matrices contain only binary values (0 or 1),
+        are symmetric, and have no self-connections.
 
         Args:
             matrices:
-                Binary adjacency matrices
+                Binary adjacency matrices with shape [num_networks, num_nodes, num_nodes]
         """
         binary_checks(matrices)
 
 
 class WeightedEvaluationCriterion(EvaluationCriterion, ABC):
+    r"""Base class for evaluation criteria specialized for weighted networks.
+
+    This class extends EvaluationCriterion to specifically handle weighted networks.
+    It implements validation checks to ensure input matrices contain only non-negative
+    values which are symmetric and contain no self-connections.
+
+    Subclasses must implement the `_evaluate` to compute the actual dissimilarity measure.
+
+    See Also:
+        - [`evaluation.EvaluationCriterion`][gnm.evaluation.EvaluationCriterion]: Parent abstract base class.
+        - [`evaluation.BinaryEvaluationCriterion`][gnm.evaluation.BinaryEvaluationCriterion]: Base class for binary network evaluations.
+    """
+
     def __init__(self):
+        r"""The initialisation method sets the accepts attribute to 'weighted' to indicate that this criterion
+        works with weighted networks.
+        """
         self.accepts = "weighted"
 
     @jaxtyped(typechecker=typechecked)
     def _pre_call(
         self, matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"]
     ):
-        """Perform checks on matrices before they are evaluated.
+        r"""Perform validation checks on weighted matrices.
+
+        Validates that the input matrices contain only non-negative values,
+        are symmetric, and have no self-connections.
 
         Args:
             matrices:
-                Weighted adjacency matrices
+                Weighted adjacency matrices with shape [num_networks, num_nodes, num_nodes]
         """
         weighted_checks(matrices)
 
 
-class WeightedEvaluation(EvaluationCriterion, ABC):
-    def __init__(self):
-        self.accepts = "weighted"
-
-    def _pre_call(
-        self, matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"]
-    ):
-        """Perform checks on matrices before they are evaluated.
-
-        Args:
-            matrices:
-                Weighted adjacency matrices
-        """
-        # check that the matrices are non-negative:
-        assert torch.all(matrices >= 0), "Matrices must be non-negative"
-
-        # Check that the matrices are symmetric:
-        assert torch.allclose(
-            matrices, matrices.transpose(-1, -2)
-        ), "Matrices must be symmetric"
-
-
 class KSCriterion(EvaluationCriterion, ABC):
-    """Base class for Kolmogorov-Smirnov (KS) test based network evaluation.
+    r"""Base class for Kolmogorov-Smirnov (KS) distance based network evaluation.
 
     This class implements network comparison using the KS test statistic between
-    distributions of network properties (e.g., degree distribution, clustering
+    distributions of network properties (*e.g.*, degree distribution, clustering
     coefficients). The KS statistic measures the maximum difference between two
     cumulative distribution functions, providing a measure of how different two
     distributions are.
 
-    Note:
-        Subclasses must implement the `_get_graph_statistics` method to define the
-        network property to use in the KS test
+    Subclasses must implement the `_get_graph_statistics` method to define the
+    specific network property to use in the KS test.
+
+    See Also:
+        - [`evaluation.DegreeKS`][gnm.evaluation.DegreeKS]: KS test on degree distributions
+        - [`evaluation.ClusteringKS`][gnm.evaluation.ClusteringKS]: KS test on clustering coefficient distributions
+        - [`evaluation.BetweennessKS`][gnm.evaluation.BetweennessKS]: KS test on betweenness centrality distributions
+        - [`utils.ks_statistic`][gnm.utils.ks_statistic]: Function to compute KS statistics, used internally to this class.
     """
 
     @jaxtyped(typechecker=typechecked)
@@ -156,16 +221,22 @@ class KSCriterion(EvaluationCriterion, ABC):
         ],
         real_matrices: Float[torch.Tensor, "num_real_networks num_nodes num_nodes"],
     ) -> Float[torch.Tensor, "num_synthetic_networks num_real_networks"]:
-        """Compute the KS statistic between network property distributions.
+        r"""Compute KS statistics between network property distributions.
+
+        Extracts network properties using _get_graph_statistics and then computes
+        the Kolmogorov-Smirnov statistic between all pairs of synthetic and real
+        property distributions.
 
         Args:
             synthetic_matrices:
-                Batch of adjacency/weight matrices of the synthetic networks
+                Batch of adjacency/weight matrices of the synthetic networks with shape
+                [num_synthetic_networks, num_nodes, num_nodes]
             real_matrices:
-                Adjacency/weight matrices of the real networks
+                Adjacency/weight matrices of the real networks with shape
+                [num_real_networks, num_nodes, num_nodes]
 
         Returns:
-            KS statistics for all pairs of synthetic and real networks
+            KS statistics for all pairs with shape [num_synthetic_networks, num_real_networks]
         """
         # Compute network property values for each network
         synthetic_statistics = self._get_graph_statistics(synthetic_matrices)
@@ -179,39 +250,50 @@ class KSCriterion(EvaluationCriterion, ABC):
     def _get_graph_statistics(
         self, matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"]
     ) -> Float[torch.Tensor, "num_networks _"]:
-        """Compute network properties for KS comparison.
+        r"""Compute network properties for KS comparison.
 
-        Must be implemented by subclasses to define which network property
-        to use in the KS test.
+        This abstract method should be implemented by subclasses to define which
+        network property to extract for comparison (*e.g.*, degrees, clustering coefficients).
 
         Args:
-            matrices: Adjacency/weight matrix of the network
+            matrices:
+                Adjacency/weight matrices with shape [num_networks, num_nodes, num_nodes]
 
         Returns:
-            1D tensor of network property values
+            Network property values with shape [num_networks, num_values]
         """
         pass
 
 
 class CorrelationCriterion(EvaluationCriterion, ABC):
-    """Base class for correlation-based network evaluation criteria.
+    r"""Base class for correlation-based network evaluation criteria.
 
-    This class implements network comparison using correlation coefficients
-    between network properties (e.g., degree distribution, clustering
-    coefficients). The correlation coefficient measures the linear relationship
-    between two variables, providing a measure of how similar two distributions
-    are.
+    This class implements network comparison using correlation coefficients between
+    spatial patterns of network properties (*e.g.*, node degree, clustering coefficients).
+    Higher correlation indicates greater similarity in the spatial organization of
+    network properties.
 
-    Note:
-        Subclasses must implement the `_get_graph_statistics` method to define the
-        network property to use in the correlation test
+    Subclasses must implement the `_get_graph_statistics` method to define the specific
+    network property to use in the correlation calculation.
+
+    Args:
+        smoothing_matrix:
+            Matrix used to spatially smooth the network property values, which can
+            help account for registration errors or spatial uncertainty in brain networks.
+
+    See Also:
+        - [`evaluation.DegreeCorrelation`][gnm.evaluation.DegreeCorrelation]: Correlation of node degree patterns
+        - [`evaluation.ClusteringCorrelation`][gnm.evaluation.ClusteringCorrelation]: Correlation of clustering coefficient patterns
+        - [`evaluation.BetweennessCorrelation`][gnm.evaluation.BetweennessCorrelation]: Correlation of betweenness centrality patterns
     """
 
     def __init__(self, smoothing_matrix: Float[torch.Tensor, "num_nodes num_nodes"]):
-        """
+        r"""
         Args:
             smoothing_matrix:
-                Matrix used to smooth the network property values
+                Matrix used to spatially smooth the network property values with shape
+                [num_nodes, num_nodes]. This can help account for registration errors
+                or spatial uncertainty in brain networks.
         """
         self.smoothing_matrix = smoothing_matrix
 
@@ -223,16 +305,22 @@ class CorrelationCriterion(EvaluationCriterion, ABC):
         ],
         real_matrices: Float[torch.Tensor, "num_real_networks num_nodes num_nodes"],
     ) -> Float[torch.Tensor, "num_synthetic_networks num_real_networks"]:
-        """Compute the correlation coefficient between network property distributions.
+        r"""Compute correlation coefficients between network property spatial patterns.
+
+        Extracts network properties using _get_graph_statistics, applies spatial smoothing,
+        and then computes Pearson correlation coefficients between all pairs of synthetic
+        and real property spatial patterns.
 
         Args:
             synthetic_matrices:
-                Batch of adjacency/weight matrices of the synthetic networks
+                Batch of adjacency/weight matrices of the synthetic networks with shape
+                [num_synthetic_networks, num_nodes, num_nodes]
             real_matrices:
-                Adjacency/weight matrices of the real networks
+                Adjacency/weight matrices of the real networks with shape
+                [num_real_networks, num_nodes, num_nodes]
 
         Returns:
-            Correlation coefficients for all pairs of synthetic and real networks
+            Correlation coefficients for all pairs with shape [num_synthetic_networks, num_real_networks]
         """
         # Compute network property values for each network
         synthetic_statistics = self._get_graph_statistics(synthetic_matrices)
@@ -276,26 +364,50 @@ class CorrelationCriterion(EvaluationCriterion, ABC):
     def _get_graph_statistics(
         self, matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"]
     ) -> Float[torch.Tensor, "num_networks num_nodes"]:
-        """Compute network properties for correlation comparison.
+        r"""Compute network properties for correlation comparison.
 
-        Must be implemented by subclasses to define which network property
-        to use in the correlation test.
+        This abstract method should be implemented by subclasses to define which
+        network property to extract for comparison (*e.g.*, degrees, clustering coefficients).
 
         Args:
-            matrices: Adjacency/weight matrix of the network
+            matrices:
+                Adjacency/weight matrices with shape [num_networks, num_nodes, num_nodes]
 
         Returns:
-            1D tensor of network property values
+            Network property values with shape [num_networks, num_nodes]
         """
         pass
 
 
 class CompositeCriterion(EvaluationCriterion, ABC):
+    r"""Base class for composite evaluation criteria combining multiple metrics.
+
+    This class allows combining multiple evaluation criteria into a single composite
+    criterion. Subclasses define how to combine the individual criteria results
+    (*e.g.*, maximum, mean, weighted sum).
+
+    Args:
+        criteria:
+            List of EvaluationCriterion objects to combine
+
+    Notes:
+        All criteria in the list must accept the same type of network (binary or weighted).
+
+    See Also:
+        - [`evaluation.MaxCriteria`][gnm.evaluation.MaxCriteria]: Takes the maximum value across all criteria
+        - [`evaluation.MeanCriteria`][gnm.evaluation.MeanCriteria]: Takes the mean value across all criteria
+        - [`evaluation.WeightedSumCriteria`][gnm.evaluation.WeightedSumCriteria]: Takes a weighted sum of all criteria
+    """
+
     def __init__(self, criteria: list[EvaluationCriterion]):
-        """
+        r"""
         Args:
             criteria:
-                List of evaluation criteria to combine
+                List of EvaluationCriterion objects to combine. All criteria must
+                accept the same type of network (binary or weighted).
+
+        Raises:
+            AssertionError: If no criteria are provided or if they accept different network type
         """
         assert len(criteria) > 0, "Must provide at least one criterion"
         self.criteria = criteria
@@ -308,4 +420,13 @@ class CompositeCriterion(EvaluationCriterion, ABC):
     def _pre_call(
         self, matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"]
     ):
+        r"""Perform validation checks using the first criterion in the list.
+
+        Delegates validation to the first criterion in the list, assuming all
+        criteria accept the same type of network.
+
+        Args:
+            matrices:
+                Adjacency/weight matrices with shape [num_networks, num_nodes, num_nodes]
+        """
         self.criteria[0]._pre_call(matrices)

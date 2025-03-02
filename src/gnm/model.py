@@ -147,7 +147,7 @@ class WeightedGenerativeParameters:
     $$
     W_{ij} \gets W_{ij} - \\alpha \\frac{\partial L}{\partial W_{ij}},
     $$
-    where $L$ is the optimisation criterion and $\\alpha$ is the learning rate.
+    where $L$ is the optimisation criterion and $\alpha$ is the learning rate.
     Note that only those weights present in the binary network adjacency matrix $A_{ij}$
     are updated.
     Additionally, symmetry is enforced so that we always have $W_{ij} = W_{ji}$.
@@ -395,23 +395,25 @@ class GenerativeNetworkModel:
         if seed_adjacency_matrix is None:
             print("Seed adjacency matrix unspecified. Assuming empty network.")
             self.seed_adjacency_matrix = torch.zeros(
-            (self.num_simulations, self.num_nodes, self.num_nodes),
-            dtype=torch.float32,
-            device=self.device,
+                (self.num_simulations, self.num_nodes, self.num_nodes),
+                dtype=torch.float32,
+                device=self.device,
             )
         elif len(seed_adjacency_matrix.shape) == 2:
             assert seed_adjacency_matrix.shape == (
-            self.num_nodes,
-            self.num_nodes,
+                self.num_nodes,
+                self.num_nodes,
             ), f"Seed adjacency matrix is incorrect shape. Expected ({self.num_nodes}, {self.num_nodes}), got {seed_adjacency_matrix.shape}"
-            self.seed_adjacency_matrix = seed_adjacency_matrix.unsqueeze(0).expand(
-            self.num_simulations, -1, -1
-            ).to(self.device)
+            self.seed_adjacency_matrix = (
+                seed_adjacency_matrix.unsqueeze(0)
+                .expand(self.num_simulations, -1, -1)
+                .to(self.device)
+            )
         else:
             assert seed_adjacency_matrix.shape == (
-            self.num_simulations,
-            self.num_nodes,
-            self.num_nodes,
+                self.num_simulations,
+                self.num_nodes,
+                self.num_nodes,
             ), f"Seed adjacency matrix is incorrect shape. Expected ({self.num_simulations}, {self.num_nodes}, {self.num_nodes}), got {seed_adjacency_matrix.shape}"
             self.seed_adjacency_matrix = seed_adjacency_matrix.to(self.device)
 
@@ -424,29 +426,31 @@ class GenerativeNetworkModel:
         if distance_matrix is None:
             print("Distance matrix unspecified. Assuming uniform distances.")
             self.distance_matrix = torch.ones(
-            (self.num_simulations, self.num_nodes, self.num_nodes),
-            dtype=torch.float32,
-            device=self.device,
+                (self.num_simulations, self.num_nodes, self.num_nodes),
+                dtype=torch.float32,
+                device=self.device,
             )
             # Remove the diagonals
             self.distance_matrix[
-            :, torch.arange(self.num_nodes), torch.arange(self.num_nodes)
+                :, torch.arange(self.num_nodes), torch.arange(self.num_nodes)
             ] = 0.0
         elif len(distance_matrix.shape) == 2:
             assert distance_matrix.shape == (
-            self.num_nodes,
-            self.num_nodes,
+                self.num_nodes,
+                self.num_nodes,
             ), f"Distance matrix is incorrect shape. Expected ({self.num_nodes}, {self.num_nodes}), got {distance_matrix.shape}"
 
-            self.distance_matrix = distance_matrix.unsqueeze(0).expand(
-            self.num_simulations, -1, -1
-            ).to(self.device)
+            self.distance_matrix = (
+                distance_matrix.unsqueeze(0)
+                .expand(self.num_simulations, -1, -1)
+                .to(self.device)
+            )
 
         else:
             assert distance_matrix.shape == (
-            self.num_simulations,
-            self.num_nodes,
-            self.num_nodes,
+                self.num_simulations,
+                self.num_nodes,
+                self.num_nodes,
             ), f"Distance matrix is incorrect shape. Expected ({self.num_simulations}, {self.num_nodes}, {self.num_nodes}), got {distance_matrix.shape}"
 
             self.distance_matrix = distance_matrix.to(self.device)
@@ -457,15 +461,15 @@ class GenerativeNetworkModel:
 
         if self.binary_parameters.distance_relationship_type == "powerlaw":
             self.distance_factor = torch.pow(
-            self.distance_matrix, self.binary_parameters.eta
+                self.distance_matrix, self.binary_parameters.eta
             )
         elif self.binary_parameters.distance_relationship_type == "exponential":
             self.distance_factor = torch.exp(
-            self.binary_parameters.eta * self.distance_matrix
+                self.binary_parameters.eta * self.distance_matrix
             )
         else:
             raise ValueError(
-            f"Unsupported distance relationship: {self.binary_parameters.distance_relationship_type}"
+                f"Unsupported distance relationship: {self.binary_parameters.distance_relationship_type}"
             )
 
         # ---- Weighted network initialisation ----
@@ -527,23 +531,23 @@ class GenerativeNetworkModel:
         # If user didn't provide seed_weight_matrix, initialise from adjacency.
         if seed_weight_matrix is None:
             print(
-            "No seed weight matrix provided. Initialising from seed adjacency matrix."
+                "No seed weight matrix provided. Initialising from seed adjacency matrix."
             )
             seed_weight_matrix = self.adjacency_matrix.clone()
         elif len(seed_weight_matrix.shape) == 2:
             assert seed_weight_matrix.shape == (
-            self.num_nodes,
-            self.num_nodes,
+                self.num_nodes,
+                self.num_nodes,
             ), f"Seed weight matrix is incorrect shape. Expected ({self.num_nodes}, {self.num_nodes}), got {seed_weight_matrix.shape}"
 
             seed_weight_matrix = seed_weight_matrix.unsqueeze(0).expand(
-            self.num_simulations, -1, -1
+                self.num_simulations, -1, -1
             )
         else:
             assert seed_weight_matrix.shape == (
-            self.num_simulations,
-            self.num_nodes,
-            self.num_nodes,
+                self.num_simulations,
+                self.num_nodes,
+                self.num_nodes,
             ), f"Seed weight matrix is incorrect shape. Expected ({self.num_simulations}, {self.num_nodes}, {self.num_nodes}), got {seed_weight_matrix.shape}"
 
         weighted_checks(seed_weight_matrix)
@@ -551,7 +555,9 @@ class GenerativeNetworkModel:
         self.seed_weight_matrix = seed_weight_matrix
 
         # Create a copy for the actual weight matrix that will be optimised.
-        self.weight_matrix = self.seed_weight_matrix.clone().to(self.device).requires_grad_(True)
+        self.weight_matrix = (
+            self.seed_weight_matrix.clone().to(self.device).requires_grad_(True)
+        )
 
         # Initialise optimiser.
         self.optimiser = optim.SGD(
@@ -913,7 +919,9 @@ class GenerativeNetworkModel:
         Args:
             device: The device to move the model to.
         """
-        self.device = device if isinstance(device, torch.device) else torch.device(device)
+        self.device = (
+            device if isinstance(device, torch.device) else torch.device(device)
+        )
         self.adjacency_matrix = self.adjacency_matrix.to(device)
         self.distance_matrix = self.distance_matrix.to(device)
         self.distance_factor = self.distance_factor.to(device)

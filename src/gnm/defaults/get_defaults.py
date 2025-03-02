@@ -1,3 +1,25 @@
+r"""Default data and resources for generative network models.
+
+This subpackage provides access to pre-packaged datasets that can be used
+for experimenting with generative network models without requiring external data.
+These defaults include:
+
+- Distance matrices: Physical distances between brain regions
+- Coordinates: 3D spatial positions of brain regions
+- Binary networks: Example structural connectivity networks (presence/absence of connections)
+- Weighted networks: Example weighted connectivity networks
+
+The module provides simple functions to list available datasets and load them
+with appropriate tensor formats for immediate use in network modeling.
+
+Functions:
+    display_available_defaults: Show all available default datasets
+    get_distance_matrix: Load a default distance matrix
+    get_coordinates: Load default 3D coordinates
+    get_binary_network: Load a default binary network
+    get_weighted_network: Load a default weighted network
+"""
+
 import torch
 import os
 from jaxtyping import Float, jaxtyped
@@ -13,9 +35,36 @@ BASE_PATH = os.path.dirname(__file__)
 
 
 def display_available_defaults():
-    """prints available defaults that can be loaded in.
-    There are available defaults for distance matrices, binary consensus networks,
-    and weighted consensus networks.
+    r"""Print all available default datasets that can be loaded.
+
+    This function prints a formatted list of all available default datasets organized
+    by category:
+
+    - Distance matrices
+    - Coordinates
+    - Binary networks
+    - Weighted networks
+
+    Each category displays the names of available files that can be loaded with the
+    corresponding get_* functions.
+
+    Examples:
+        >>> from gnm.defaults import display_available_defaults
+        >>> display_available_defaults()
+        === Distance matrices ===
+        AAL_DISTANCES
+        === Coordinates ===
+        AAL_COORDINATES
+        === Binary networks ===
+        CALM_BINARY_CONSENSUS
+        === Weighted networks ===
+        CALM_WEIGHTED_CONSENSUS
+
+    See Also:
+        - [`defaults.get_distance_matrix`][gnm.defaults.get_distance_matrix]: Load a specific distance matrix
+        - [`defaults.get_coordinates`][gnm.defaults.get_coordinates]: Load specific coordinate data
+        - [`defaults.get_binary_network`][gnm.defaults.get_binary_network]: Load a specific binary network
+        - [`defaults.get_weighted_network`][gnm.defaults.get_weighted_network]: Load a specific weighted network
     """
 
     print("=== Distance matrices ===")
@@ -40,23 +89,37 @@ def display_available_defaults():
 def get_distance_matrix(
     name: Optional[str] = None, device: Optional[torch.device] = None
 ) -> Float[torch.Tensor, "num_nodes num_nodes"]:
-    """Loads a default distance matrix.
+    r"""Load a default distance matrix.
 
-    Available distance matrices are:
+    Provides access to pre-packaged distance matrices that represent physical distances
+    between brain regions in standard atlas parcellations.
 
-    1. AAL_DISTANCES
+    Available distance matrices:
+
+    - AAL_DISTANCES: Distance matrix for the Automated Anatomical Labeling atlas
 
     Args:
-        name:
-            Name of the distance matrix to be loaded in.
-            If unspecified, the AAL_DISTANCES distance matrix is loaded in.
-        device:
-            Device to load the distance matrix on.
-            If unspecified, the device is automatically set to "cuda" if available,
-            otherwise "cpu".
+        name: Name of the distance matrix to load. If unspecified,
+            the AAL_DISTANCES distance matrix is loaded.
+        device: Device to load the distance matrix on. If unspecified,
+            automatically uses CUDA if available, otherwise CPU.
 
     Returns:
-        The requested distance matrix as a torch tensor.
+        A Pytorch tensor containing the requested distance matrix with shape [num_nodes, num_nodes].
+
+    Examples:
+        >>> from gnm.defaults import get_distance_matrix
+        >>> # Load default distance matrix
+        >>> dist_matrix = get_distance_matrix()
+        >>> # Load a specific distance matrix and place on CPU
+        >>> import torch
+        >>> dist_matrix = get_distance_matrix(name="AAL_DISTANCES", device=torch.device("cpu"))
+        >>> dist_matrix.shape
+        torch.Size([90, 90])
+
+    See Also:
+        - [`defaults.get_coordinates`][gnm.defaults.get_coordinates]: For loading spatial coordinates of nodes
+        - [`defaults.get_binary_network`][gnm.defaults.get_binary_network]: For loading binary connectivity networks
     """
     if device is None:
         device = DEVICE
@@ -79,23 +142,35 @@ def get_distance_matrix(
 def get_coordinates(
     name: Optional[str] = None, device: Optional[torch.device] = None
 ) -> Float[torch.Tensor, "num_nodes 3"]:
-    """Loads a default set of coordinates.
+    r"""Load a default set of 3D coordinates.
 
-    Available coordinate sets are:
+    Provides access to pre-packaged coordinate sets that represent the spatial positions
+    of brain regions in standard atlas parcellations.
 
-    1. AAL_COORDINATES
+    Available coordinate sets:
+
+    - AAL_COORDINATES: 3D coordinates for the Automated Anatomical Labeling atlas
 
     Args:
-        name:
-            Name of the coordinates to be loaded in.
-            If unspecified, the AAL_COORDINATES coordinates are loaded in.
-        device:
-            Device to load the coordinates on.
-            If unspecified, the device is automatically set to "cuda" if available,
-            otherwise "cpu".
+        name: Name of the coordinates to load. If unspecified,
+            the AAL_COORDINATES coordinates are loaded.
+        device: Device to load the coordinates on. If unspecified,
+            automatically uses CUDA if available, otherwise CPU.
 
     Returns:
-        The requested coordinates as a torch tensor.
+        A tensor containing the requested coordinates with shape [num_nodes, 3].
+
+    Examples:
+        >>> from gnm.defaults import get_coordinates
+        >>> # Load default coordinates
+        >>> coords = get_coordinates()
+        >>> # Load a specific coordinate set
+        >>> coords = get_coordinates(name="AAL_COORDINATES")
+        >>> coords.shape
+        torch.Size([90, 3])
+
+    See Also:
+        - [`defaults.get_distance_matrix`][gnm.defaults.get_distance_matrix]: For loading distance matrices between nodes
     """
     if device is None:
         device = DEVICE
@@ -114,23 +189,37 @@ def get_coordinates(
 def get_binary_network(
     name: Optional[str] = None, device: Optional[torch.device] = None
 ) -> Float[torch.Tensor, "dataset_size num_nodes num_nodes"]:
-    """Loads a default binary network.
+    r"""Load a default binary network.
 
-    Available binary matrices are:
+    Provides access to pre-packaged binary networks that represent structural
+    connectivity with edges indicated as either present (1) or absent (0).
 
-    1. CALM_BINARY_CONSENSUS
+    Available binary networks:
+
+    - CALM_BINARY_CONSENSUS: Binary consensus network from the CALM dataset
 
     Args:
-        name:
-            Name of the binary network to be loaded in.
-            If unspecified, the CALM_BINARY_CONSENSUS binary network is loaded in.
-        device:
-            Device to load the binary network on.
-            If unspecified, the device is automatically set to "cuda" if available,
-            otherwise "cpu".
+        name: Name of the binary network to load. If unspecified,
+            the CALM_BINARY_CONSENSUS binary network is loaded.
+        device: Device to load the binary network on. If unspecified,
+            automatically uses CUDA if available, otherwise CPU.
 
     Returns:
-        The requested binary network as a torch tensor.
+        A tensor containing the requested binary network with shape
+        [dataset_size, num_nodes, num_nodes].
+
+    Examples:
+        >>> from gnm.defaults import get_binary_network
+        >>> # Load default binary network
+        >>> bin_net = get_binary_network()
+        >>> # Load a specific binary network
+        >>> bin_net = get_binary_network(name="CALM_BINARY_CONSENSUS")
+        >>> bin_net.shape
+        torch.Size([1, 90, 90])
+
+    See Also:
+        - [`defaults.get_weighted_network`][gnm.defaults.get_weighted_network]: For loading weighted connectivity networks
+        - [`utils.binary_checks`][gnm.utils.binary_checks]: For validating binary networks
     """
     if device is None:
         device = DEVICE
@@ -153,23 +242,37 @@ def get_binary_network(
 def get_weighted_network(
     name: Optional[str] = None, device: Optional[torch.device] = None
 ) -> Float[torch.Tensor, "dataset_size num_nodes num_nodes"]:
-    """Loads a default weighted network.
+    r"""Load a default weighted network.
 
-    Available weighted matrices are:
+    Provides access to pre-packaged weighted networks that represent structural
+    connectivity with connections represented by continuous weights.
 
-    1. CALM_WEIGHTED_CONSENSUS
+    Available weighted networks:
+
+    - CALM_WEIGHTED_CONSENSUS: Weighted consensus network from the CALM dataset
 
     Args:
-        name:
-            Name of the weighted network to be loaded in.
-            If unspecified, the CALM_WEIGHTED_CONSENSUS weighted network is loaded in.
-        device:
-            Device to load the weighted network on.
-            If unspecified, the device is automatically set to "cuda" if available,
-            otherwise "cpu".
+        name: Name of the weighted network to load. If unspecified,
+            the CALM_WEIGHTED_CONSENSUS weighted network is loaded.
+        device: Device to load the weighted network on. If unspecified,
+            automatically uses CUDA if available, otherwise CPU.
 
     Returns:
-        The requested weighted network as a torch tensor.
+        A tensor containing the requested weighted network with shape
+        [dataset_size, num_nodes, num_nodes].
+
+    Examples:
+        >>> from gnm.defaults import get_weighted_network
+        >>> # Load default weighted network
+        >>> wt_net = get_weighted_network()
+        >>> # Load a specific weighted network
+        >>> wt_net = get_weighted_network(name="CALM_WEIGHTED_CONSENSUS")
+        >>> wt_net.shape
+        torch.Size([1, 90, 90])
+
+    See Also:
+        - [`defaults.get_binary_network`][gnm.defaults.get_binary_network]: For loading binary connectivity networks
+        - [`utils.weighted_checks`][gnm.utils.weighted_checks]: For validating weighted networks
     """
     if device is None:
         device = DEVICE

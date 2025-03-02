@@ -44,4 +44,4 @@ The gnm.defaults sub-package contains default values that can be used to run exp
 
 ## [gnm.utils](utils.md)
 
-Finally, the gnm.utils sub-package contains other useful functionality for working with the toolbox. 
+Finally, the gnm.utils sub-package contains other useful functionality for working with the toolbox, including functionality for computing statistics and various graph measures
