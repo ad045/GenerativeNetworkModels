@@ -1,8 +1,15 @@
 # Weight Criteria
 
+::: gnm.weight_criteria
+    options:
+      members: false
+      show_root_heading: true
+      show_root_full_path: false
+
 ::: gnm.weight_criteria.OptimisationCriterion
     options:
-        members: []
+        members:
+            - __call__
 
 ## Basic Weight Criteria
 

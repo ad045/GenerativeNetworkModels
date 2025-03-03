@@ -8,15 +8,28 @@ from gnm.utils import communicability, weighted_checks
 
 
 class OptimisationCriterion(ABC):
-    """Base abstract class for optimisation criteria used in weighted generative networks.
+    r"""Abstract base class for optimisation criteria used in weighted generative networks.
 
-    This class provides a framework for defining various optimisation objectives, $L(W)$ used
-    to evolve weights in the weighted generative network model.
+    This class provides a framework for defining various optimisation objectives that guide
+    the evolution of weights in weighted generative network models. Each criterion implements
+    an objective function L(W) that the network attempts to optimise during generation.
+
+    Subclasses must implement a `__call__` method to compute the objective function value for a given weight matrix
+
+    Examples:
+        >>> # Define a custom optimisation criterion
+        >>> class CustomCriterion(OptimisationCriterion):
+        ...     def __call__(self, weight_matrix):
+        ...         # Calculate some objective function
+        ...         return torch.sum(weight_matrix)
+
+    See Also:
+        - [`model.WeightedGenerativeParameters`][gnm.model.WeightedGenerativeParameters]: Uses optimisation criteria to guide weight evolution
+        - [`generative_rules.GenerativeRule`][gnm.generative_rules.GenerativeRule]: Base class for rules for the generation of binary networks
     """
 
-    @abstractmethod
     def __str__(self) -> str:
-        pass
+        return self.__class__.__name__
 
     @abstractmethod
     @jaxtyped(typechecker=typechecked)
@@ -28,41 +41,51 @@ class OptimisationCriterion(ABC):
 
 
 class Communicability(OptimisationCriterion):
-    """Communicability optimisation criterion.
-    To compute this optimisation criterion, we go through the following steps:
+    r"""Communicability optimisation criterion.
 
-    1. Compute the diagonal node strength matrix, $S_{ii} = \sum_j W_{ij}$ (plus a small constant to prevent division by zero).
-    2. Compute the normalised weight matrix, $S^{-1/2} W S^{-1/2}$.
-    3. Compute the communicability matrix by taking the matrix exponential, $\exp( S^{-1/2} W S^{-1/2} )$.
-    4. Raise each element of this product to the power of $\omega$, $\exp( S^{-1/2} W S^{-1/2} )_{ij}^\omega$.
-    5. Sum over the elements of the communicability matrix rasied to the power of $\omega$ to get the loss.
+    This criterion optimises network weights based on the total communicability of the network.
+    Communicability measures the ease with which information can flow between nodes through
+    all possible paths.
 
-    The loss $L(W)$ is then given by:
+    To compute this optimisation criterion, we follow these steps:
+
+    1. Compute the diagonal node strength matrix, $S_{ii} = \sum_j W_{ij}$ (plus a small constant to prevent division by zero)
+    2. Compute the normalised weight matrix, $S^{-1/2} W S^{-1/2}$
+    3. Compute the communicability matrix by taking the matrix exponential, $\exp(S^{-1/2} W S^{-1/2})$
+    4. Raise each element of this product to the power of $\omega$, $\exp(S^{-1/2} W S^{-1/2})_{ij}^\omega$
+    5. Sum over the elements of the communicability matrix raised to the power of $\omega$ to get the loss
+
+    The loss $L(W)$ is given by:
     $$
     L(W) = \sum_{ij} \\left( \exp( S^{-1/2} W S^{-1/2} )_{ij} \\right)^\omega
     $$
 
-    See Also:
-
-    Note:
-        This class is a callable.
-
     Examples:
-        >>> criterion = Communicability(normalisation=False, omega=1.0)
-        >>> weight_matrix = torch.rand(10, 10)
+        >>> import torch
+        >>> from gnm.weight_criteria import Communicability
+        >>> from gnm.defaults import get_weighted_network
+        >>> # Create a communicability criterion with default parameters
+        >>> criterion = Communicability(omega=1.0)
+        >>> # Apply to a network
+        >>> weight_matrix = get_weighted_network()
         >>> loss = criterion(weight_matrix)
+        >>> loss.shape
+        torch.Size([1])
+
+    See Also:
+        - [`utils.communicability`][gnm.utils.communicability]: Function used to calculate network communicability.
+        - [`weight_criteria.OptimisationCriterion`][gnm.weight_criteria.OptimisationCriterion]: Base class for defining custom optimisation criteria, from which this class inherits.
+        - [`weight_criteria.NormalisedCommunicability`][gnm.weight_criteria.NormalisedCommunicability]: Normalised version of this criterion.
+        - [`weight_criteria.DistanceWeightedCommunicability`][gnm.weight_criteria.DistanceWeightedCommunicability]: Distance-weighted version of this criterion.
     """
 
     def __init__(self, omega: float = 1.0):
-        """
+        r"""
         Args:
             omega:
                 The power to which to raise each element of the communicability matrix before performing the sum. Defaults to 1.0.
         """
         self.omega = omega
-
-    def __str__(self) -> str:
-        return "Communicability"
 
     @jaxtyped(typechecker=typechecked)
     def __call__(
@@ -74,8 +97,11 @@ class Communicability(OptimisationCriterion):
 
 
 class NormalisedCommunicability(OptimisationCriterion):
-    """Communicability optimisation criterion.
-    To compute this optimisation criterion, we go through the following steps:
+    r"""Normalised communicability optimisation criterion.
+
+    This criterion optimises network weights based on the normalised total communicability
+    of the network. The normalisation makes this criterion less sensitive to absolute weight
+    magnitudes by dividing by the maximum communicability value.
 
     1. Compute the diagonal node strength matrix, $S_{ii} = \sum_j W_{ij}$ (plus a small constant to prevent division by zero).
     2. Compute the normalised weight matrix, $S^{-1/2} W S^{-1/2}$.
@@ -89,27 +115,33 @@ class NormalisedCommunicability(OptimisationCriterion):
     L(W) = \\frac{ \sum_{ij} \exp( S^{-1/2} W S^{-1/2} )_{ij}^\omega }{ \max_{ij} \exp( S^{-1/2} W S^{-1/2} )_{ij}^\omega }
     $$
 
-    See Also:
-
-    Note:
-        This class is a callable.
-
     Examples:
-        >>> criterion = Communicability(normalisation=True, omega=1.0)
-        >>> weight_matrix = torch.rand(10, 10)
+        >>> import torch
+        >>> from gnm.weight_criteria import NormalisedCommunicability
+        >>> from gnm.defaults import get_weighted_network
+        >>> # Create a normalied communicability criterion with default parameters
+        >>> criterion = NormalisedCommunicability()
+        >>> # Apply to a network
+        >>> weight_matrix = get_weighted_network()
         >>> loss = criterion(weight_matrix)
+        >>> loss.shape
+        torch.Size([1])
+
+    See Also:
+        - [`utils.communicability`][gnm.utils.communicability]: Function used to calculate network communicability.
+        - [`weight_criteria.OptimisationCriterion`][gnm.weight_criteria.OptimisationCriterion]: Base class for defining custom optimisation criteria, from which this class inherits.
+        - [`weight_criteria.Communicability`][gnm.weight_criteria.Communicability]: Non-normalised version of this criterion.
+        - [`weight_criteria.NormalisedDistanceWeightedCommunicability`][gnm.weight_criteria.NormalisedDistanceWeightedCommunicability]: Distance-weighted version of this criterion.
+
     """
 
     def __init__(self, omega: float = 1.0):
-        """
+        r"""
         Args:
             omega:
-                The power to which to raise each element of the communicability matrix before performing the sum. Defaults to 1.0.
+                The power to which to raise each element of the communicability matrix before performing the sum and normalising. Defaults to 1.0.
         """
         self.omega = omega
-
-    def __str__(self) -> str:
-        return "Normalised communicability"
 
     @jaxtyped(typechecker=typechecked)
     def __call__(
@@ -127,7 +159,12 @@ class NormalisedCommunicability(OptimisationCriterion):
 
 
 class DistanceWeightedCommunicability(OptimisationCriterion):
-    """Distance Weighted Communicability optimisation criterion.
+    r"""Distance-weighted communicability optimisation criterion.
+
+    This criterion optimises network weights based on the communicability weighted by
+    the distances between nodes. This adds a spatial constraint to the optimisation,
+    where communicability between distant nodes contributes more to the objective function.
+
     To compute this optimisation criterion, we go through the following steps:
 
     1. Compute the diagonal node strength matrix, $S_{ii} = \sum_j W_{ij}$ (plus a small constant to prevent division by zero).
@@ -142,10 +179,24 @@ class DistanceWeightedCommunicability(OptimisationCriterion):
     L(W) = \sum_{ij} \\left( \exp( S^{-1/2} W S^{-1/2} )_{ij} D_{ij} \\right)^\omega
     $$
 
-    See Also:
+    Examples:
+        >>> import torch
+        >>> from gnm.weight_criteria import DistanceWeightedCommunicability
+        >>> from gnm.defaults import get_weighted_network, get_distance_matrix
+        >>> # Create a distance-weighted communicability criterion with default parameters
+        >>> distance_matrix = get_distance_matrix()
+        >>> criterion = DistanceWeightedCommunicability(distance_matrix, omega=1.0)
+        >>> # Apply to a network
+        >>> weight_matrix = get_weighted_network()
+        >>> loss = criterion(weight_matrix)
+        >>> loss.shape
+        torch.Size([1])
 
-    Notes:
-        This class is a callable.
+    See Also:
+        - [`utils.communicability`][gnm.utils.communicability]: Function used to calculate network communicability.
+        - [`weight_criteria.OptimisationCriterion`][gnm.weight_criteria.OptimisationCriterion]: Base class for defining custom optimisation criteria, from which this class inherits.
+        - [`weight_criteria.NormalisedDistanceWeightedCommunicability`][gnm.weight_criteria.NormalisedDistanceWeightedCommunicability]: Normalised version of this criterion.
+        - [`weight_criteria.Communicability`][gnm.weight_criteria.Communicability]: Non-distance-weighted version of this criterion.
     """
 
     def __init__(
@@ -156,7 +207,7 @@ class DistanceWeightedCommunicability(OptimisationCriterion):
         ],
         omega: float = 1.0,
     ):
-        """
+        r"""
         Args:
             distance_matrix:
                 The distance matrix of the network.
@@ -170,9 +221,6 @@ class DistanceWeightedCommunicability(OptimisationCriterion):
 
         weighted_checks(self.distance_matrix)
         self.omega = omega
-
-    def __str__(self) -> str:
-        return "Distance weighted communicability"
 
     @jaxtyped(typechecker=typechecked)
     def __call__(
@@ -197,7 +245,12 @@ class DistanceWeightedCommunicability(OptimisationCriterion):
 
 
 class NormalisedDistanceWeightedCommunicability(OptimisationCriterion):
-    """Normalised Distance Weighted Communicability optimisation criterion.
+    r"""Normalised distance-weighted communicability optimisation criterion.
+
+    This criterion optimises network weights based on the normalised communicability
+    weighted by the distances between nodes. The normalisation makes this criterion
+    less sensitive to absolute magnitudes by dividing by the maximum value.
+
     To compute this optimisation criterion, we go through the following steps:
 
     1. Compute the diagonal node strength matrix, $S_{ii} = \sum_j W_{ij}$ (plus a small constant to prevent division by zero).
@@ -213,10 +266,24 @@ class NormalisedDistanceWeightedCommunicability(OptimisationCriterion):
     L(W) = \\frac{ \sum_{ij} \\left( \exp( S^{-1/2} W S^{-1/2} )_{ij} D_{ij} \\right)^\omega }{ \max_{ij} \\left( \exp( S^{-1/2} W S^{-1/2} )_{ij} D_{ij} \\right)^\omega }
     $$
 
-    See Also:
+    Examples:
+        >>> import torch
+        >>> from gnm.weight_criteria import NormalisedDistanceWeightedCommunicability
+        >>> from gnm.defaults import get_weighted_network, get_distance_matrix
+        >>> # Create a normalised distance-weighted communicability criterion with default parameters
+        >>> distance_matrix = get_distance_matrix()
+        >>> criterion = NormalisedDistanceWeightedCommunicability(distance_matrix, omega=1.0)
+        >>> # Apply to a network
+        >>> weight_matrix = get_weighted_network()
+        >>> loss = criterion(weight_matrix)
+        >>> loss.shape
+        torch.Size([1])
 
-    Notes:
-        This class is a callable.
+    See Also:
+        - [`utils.communicability`][gnm.utils.communicability]: Function used to calculate network communicability.
+        - [`weight_criteria.OptimisationCriterion`][gnm.weight_criteria.OptimisationCriterion]: Base class for defining custom optimisation criteria, from which this class inherits.
+        - [`weight_criteria.DistanceWeightedCommunicability`][gnm.weight_criteria.DistanceWeightedCommunicability]: Non-normalised version of this criterion.
+        - [`weight_criteria.NormalisedCommunicability`][gnm.weight_criteria.NormalisedCommunicability]: Non-distance-weighted version of this criterion.
     """
 
     def __init__(
@@ -227,13 +294,13 @@ class NormalisedDistanceWeightedCommunicability(OptimisationCriterion):
         ],
         omega: float = 1.0,
     ):
-        """
+        r"""
         Args:
             distance_matrix:
                 The distance matrix of the network.
             omega:
                 The power to which to raise each element of the distance weighted communicability before performing
-                the sum. Defaults to 1.0."""
+                the sum and normalising. Defaults to 1.0."""
         if len(distance_matrix.shape) == 2:
             self.distance_matrix = distance_matrix.unsqueeze(0)
         else:
@@ -242,14 +309,11 @@ class NormalisedDistanceWeightedCommunicability(OptimisationCriterion):
         weighted_checks(self.distance_matrix)
         self.omega = omega
 
-    def __str__(self) -> str:
-        return "Normalised distance weighted communicability"
-
     @jaxtyped(typechecker=typechecked)
     def __call__(
         self, weight_matrix: Float[torch.Tensor, "num_simulations num_nodes num_nodes"]
     ) -> Float[torch.Tensor, "num_simulations"]:
-        """
+        r"""
         Computes the distance-weighted communicability of a network with a given weight matrix.
 
         Args:
@@ -275,8 +339,12 @@ class NormalisedDistanceWeightedCommunicability(OptimisationCriterion):
 
 
 class WeightedDistance(OptimisationCriterion):
-    """
-    Weighted Distance optimisation criterion.
+    r"""Weighted distance optimisation criterion.
+
+    This criterion optimises network weights based on the product of weights and distances.
+    It penalises strong connections between distant nodes, encouraging a more
+    spatially efficient network structure.
+
     To compute the optimisation criterion, we go through the following steps:
 
     1. Take the element-wise product of the distance matrix and the weight matrix, $D \odot W$.
@@ -287,6 +355,24 @@ class WeightedDistance(OptimisationCriterion):
     $$
     L(W) = \sum_{ij} \\left( D_{ij} W_{ij} \\right)^\omega
     $$
+
+    Examples:
+        >>> import torch
+        >>> from gnm.weight_criteria import WeightedDistance
+        >>> from gnm.defaults import get_weighted_network, get_distance_matrix
+        >>> # Create a weighted distance criterion with default parameters
+        >>> distance_matrix = get_distance_matrix()
+        >>> criterion = WeightedDistance(distance_matrix, omega=1.0)
+        >>> # Apply to a network
+        >>> weight_matrix = get_weighted_network()
+        >>> loss = criterion(weight_matrix)
+        >>> loss.shape
+        torch.Size([1])
+
+    See Also:
+        - [`weight_criteria.OptimisationCriterion`][gnm.weight_criteria.OptimisationCriterion]: Base class for defining custom optimisation criteria, from which this class inherits.
+        - [`weight_criteria.NormalisedWeightedDistance`][gnm.weight_criteria.NormalisedWeightedDistance]: Normalised version of this criterion.
+        - [`weight_criteria.Weight`][gnm.weight_criteria.Weight]: Non-distance-weighted version of this criterion.
     """
 
     def __init__(
@@ -297,6 +383,15 @@ class WeightedDistance(OptimisationCriterion):
         ],
         omega: float = 1.0,
     ):
+        r"""
+        Args:
+            distance_matrix:
+                The distance matrix of the network.
+            omega:
+                The power to which to raise each element of the weighted distance before performing
+                the sum. Defaults to 1.0.
+        """
+
         if len(distance_matrix.shape) == 2:
             self.distance_matrix = distance_matrix.unsqueeze(0)
         else:
@@ -304,9 +399,6 @@ class WeightedDistance(OptimisationCriterion):
 
         weighted_checks(self.distance_matrix)
         self.omega = omega
-
-    def __str__(self) -> str:
-        return "Weighted distance"
 
     @jaxtyped(typechecker=typechecked)
     def __call__(
@@ -317,8 +409,12 @@ class WeightedDistance(OptimisationCriterion):
 
 
 class NormalisedWeightedDistance(OptimisationCriterion):
-    """
-    Normalised Weighted Distance optimisation criterion.
+    r"""Normalised weighted distance optimisation criterion.
+
+    This criterion optimises network weights based on the normalised product of weights and distances.
+    The normalisation makes this criterion less sensitive to absolute magnitudes by dividing
+    by the maximum value.
+
     To compute the optimisation criterion, we go through the following steps:
 
     1. Take the element-wise product of the distance matrix and the weight matrix, $D \odot W$.
@@ -330,6 +426,24 @@ class NormalisedWeightedDistance(OptimisationCriterion):
     $$
     L(W) = \\frac{ \sum_{ij} \\left( D_{ij} W_{ij} \\right)^\omega }{ \max_{ij} \\left( D_{ij} W_{ij} \\right)^\omega }
     $$
+
+    Examples:
+        >>> import torch
+        >>> from gnm.weight_criteria import NormalisedWeightedDistance
+        >>> from gnm.defaults import get_weighted_network, get_distance_matrix
+        >>> # Create a normalised weighted distance criterion with default parameters
+        >>> distance_matrix = get_distance_matrix()
+        >>> criterion = NormalisedWeightedDistance(distance_matrix, omega=1.0)
+        >>> # Apply to a network
+        >>> weight_matrix = get_weighted_network()
+        >>> loss = criterion(weight_matrix)
+        >>> loss.shape
+        torch.Size([1])
+
+    See Also:
+        - [`weight_criteria.OptimisationCriterion`][gnm.weight_criteria.OptimisationCriterion]: Base class for defining custom optimisation criteria, from which this class inherits.
+        - [`weight_criteria.WeightedDistance`][gnm.weight_criteria.WeightedDistance]: Non-normalised version of this criterion.
+        - [`weight_criteria.NormalisedWeight`][gnm.weight_criteria.NormalisedWeight]: Non-distance-weighted version of this criterion.
     """
 
     def __init__(
@@ -340,6 +454,14 @@ class NormalisedWeightedDistance(OptimisationCriterion):
         ],
         omega: float = 1.0,
     ):
+        r"""
+        Args:
+            distance_matrix:
+                The distance matrix of the network.
+            omega:
+                The power to which to raise each element of the weighted distance before performing
+                the sum and normalising. Defaults to 1.0.
+        """
         if len(distance_matrix.shape) == 2:
             self.distance_matrix = distance_matrix.unsqueeze(0)
         else:
@@ -347,9 +469,6 @@ class NormalisedWeightedDistance(OptimisationCriterion):
 
         weighted_checks(self.distance_matrix)
         self.omega = omega
-
-    def __str__(self) -> str:
-        return "Normalised weighted distance"
 
     @jaxtyped(typechecker=typechecked)
     def __call__(
@@ -364,8 +483,11 @@ class NormalisedWeightedDistance(OptimisationCriterion):
 
 
 class Weight(OptimisationCriterion):
-    """
-    Weight optimisation criterion.
+    r"""Weight optimisation criterion.
+
+    This criterion simply optimises based on the sum of all weights raised to a power.
+    It provides a basic measure of the overall magnitude of weights in the network.
+
     To compute the optimisation criterion, we sum over the elements of
     the weight matrix raised to the power of $\omega$.
 
@@ -373,13 +495,32 @@ class Weight(OptimisationCriterion):
     $$
     L(W) = \sum_{ij} W_{ij}^\omega
     $$
+
+    Examples:
+        >>> import torch
+        >>> from gnm.weight_criteria import Weight
+        >>> from gnm.defaults import get_weighted_network
+        >>> # Create a weight criterion with default parameters
+        >>> criterion = Weight(omega=1.0)
+        >>> # Apply to a network
+        >>> weight_matrix = get_weighted_network()
+        >>> loss = criterion(weight_matrix)
+        >>> loss.shape
+        torch.Size([1])
+
+    See Also:
+        - [`weight_criteria.OptimisationCriterion`][gnm.weight_criteria.OptimisationCriterion]: Base class for defining custom optimisation criteria, from which this class inherits.
+        - [`weight_criteria.NormalisedWeight`][gnm.weight_criteria.NormalisedWeight]: Normalised version of this criterion.
+        - [`weight_criteria.WeightedDistance`][gnm.weight_criteria.WeightedDistance]: Distance-weighted version of this criterion.
     """
 
     def __init__(self, omega: float = 1.0):
+        r"""
+        Args:
+            omega:
+                The power to which to raise each element of the weight matrix before performing the sum. Defaults to 1.0.
+        """
         self.omega = omega
-
-    def __str__(self) -> str:
-        return "Weight"
 
     @jaxtyped(typechecker=typechecked)
     def __call__(
@@ -389,8 +530,13 @@ class Weight(OptimisationCriterion):
 
 
 class NormalisedWeight(OptimisationCriterion):
-    """
-    Normalised Weight optimisation criterion.
+    r"""Normalised weight optimisation criterion.
+
+    This criterion optimises based on the sum of all normalised weights.
+    The normalisation makes this criterion invariant to the absolute scale
+    of weights by dividing by the maximum weight.
+
+
     To compute the optimisation criterion, we normalise the weight matrix
     by dividing by the maximum element, and then sum over the elements of
     the normalised weight matrix raised to the power of $\omega$.
@@ -399,13 +545,32 @@ class NormalisedWeight(OptimisationCriterion):
     $$
     L(W) = \\frac{ \sum_{ij} W^\omega_{ij} }{ \max_{ij} W^\omega_{ij} }
     $$
+
+    Examples:
+        >>> import torch
+        >>> from gnm.weight_criteria import NormalisedWeight
+        >>> from gnm.defaults import get_weighted_network
+        >>> # Create a normalised weight criterion with default parameters
+        >>> criterion = NormalisedWeight(omega=1.0)
+        >>> # Apply to a network
+        >>> weight_matrix = get_weighted_network()
+        >>> loss = criterion(weight_matrix)
+        >>> loss.shape
+        torch.Size([1])
+
+    See Also:
+        - [`weight_criteria.OptimisationCriterion`][gnm.weight_criteria.OptimisationCriterion]: Base class for defining custom optimisation criteria, from which this class inherits.
+        - [`weight_criteria.Weight`][gnm.weight_criteria.Weight]: Non-normalised version of this criterion.
+        - [`weight_criteria.NormalisedWeightedDistance`][gnm.weight_criteria.NormalisedWeightedDistance]: Distance-weighted version of this criterion.
     """
 
     def __init__(self, omega: float = 1.0):
+        r"""
+        Args:
+            omega:
+                The power to which to raise each element of the weight matrix before performing the sum and normalising. Defaults to 1.0.
+        """
         self.omega = omega
-
-    def __str__(self) -> str:
-        return "Normalised weight"
 
     @jaxtyped(typechecker=typechecked)
     def __call__(
