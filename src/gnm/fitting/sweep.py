@@ -1,3 +1,17 @@
+r"""Functions for running generative network model simulations and parameter sweeps.
+
+This module provides functions for executing generative network models with specific
+parameters and performing systematic parameter sweeps. It includes functions for running
+individual model simulations, evaluating generated networks against real networks, and
+exploring large parameter spaces efficiently.
+
+The main components are:
+
+- perform_run: Executes a single generative network model run with specific parameters
+- perform_sweep: Runs multiple model simulations across a parameter space
+- perform_evaluations: Evaluates generated networks against real networks using various criteria
+"""
+
 from gnm.evaluation import (
     BinaryEvaluationCriterion,
     WeightedEvaluationCriterion,
@@ -48,24 +62,76 @@ def perform_run(
         Float[torch.Tensor, "num_real_weighted_networks num_nodes num_nodes"]
     ] = None,
     save_only_evaluations: Optional[bool] = False,
-    device: Optional[Union[torch.device,str]] = None,
+    device: Optional[Union[torch.device, str]] = None,
 ) -> Experiment:
-    """Perform a single run of the generative network model.
+    r"""Perform a single run of the generative network model.
+
+    This function executes a generative network model with the specified configuration,
+    creates synthetic networks, and evaluates them against real networks using provided
+    evaluation criteria. It returns an Experiment object containing the results.
 
     Args:
         run_config:
-            Configuration for the run
+            Configuration for the run, specifying parameters and input matrices.
         binary_evaluations:
-            List of binary evaluation criteria to use for comparing synthetic and real networks
+            List of criteria for evaluating binary network properties.
+            Defaults to None (no binary evaluation).
         weighted_evaluations:
-            List of weighted evaluation criteria to use for comparing synthetic and real networks
+            List of criteria for evaluating weighted network properties.
+            Defaults to None (no weighted evaluation).
         real_binary_matrices:
-            Real binary networks to compare synthetic networks against. Defaults to None
+            Real binary networks to compare synthetic networks against.
+            Required if binary_evaluations is provided.
         real_weighted_matrices:
-            Real weighted networks to compare synthetic networks against. Defaults to None
+            Real weighted networks to compare synthetic networks against.
+            Required if weighted_evaluations is provided.
+        save_only_evaluations:
+            If True, only saves evaluation results and discards the model and history
+            to save memory. Defaults to False.
+        device:
+            Device to run the model on. If unspecified, uses CUDA if available, else CPU.
 
     Returns:
-        Dictionary with keys "run_config" and "results" containing the run configuration and results
+        An Experiment object containing the run configuration, evaluation results,
+        and optionally the model and run history.
+
+    Examples:
+        >>> from gnm import BinaryGenerativeParameters
+        >>> from gnm.generative_rules import MatchingIndex
+        >>> from gnm.fitting import RunConfig, perform_run
+        >>> from gnm.evaluation import ClusteringKS
+        >>> from gnm.defaults import get_binary_network, get_distance_matrix
+        >>> # Create run configuration
+        >>> binary_params = BinaryGenerativeParameters(
+        ...     eta=-2.0,
+        ...     gamma=0.3,
+        ...     lambdah=0.0,
+        ...     distance_relationship_type="powerlaw",
+        ...     preferential_relationship_type="powerlaw",
+        ...     heterochronicity_relationship_type="powerlaw",
+        ...     generative_rule=MatchingIndex(),
+        ...     num_iterations=100,
+        ... )
+        >>> config = RunConfig(
+        ...     binary_parameters=binary_params,
+        ...     num_simulations=5,
+        ...     distance_matrix=get_distance_matrix(),
+        ... )
+        >>> # Define evaluation
+        >>> binary_evals = [ClusteringKS()]
+        >>> real_networks = get_binary_network()
+        >>> # Run the model
+        >>> experiment = perform_run(
+        ...     run_config=config,
+        ...     binary_evaluations=binary_evals,
+        ...     real_binary_matrices=real_networks,
+        ... )
+
+    See Also:
+        - [`fitting.RunConfig`][gnm.fitting.RunConfig]: Configuration for a single run
+        - [`fitting.Experiment`][gnm.fitting.Experiment]: Result container for experiments
+        - [`fitting.perform_sweep`][gnm.fitting.perform_sweep]: Function for running multiple parameter combinations
+        - [`GenerativeNetworkModel`][gnm.GenerativeNetworkModel]: The network model being executed
     """
 
     model = GenerativeNetworkModel(
@@ -98,10 +164,17 @@ def perform_run(
     )
 
     if save_only_evaluations:
-        experiment = Experiment(run_config=run_config, evaluation_results=evaluation_results)
+        experiment = Experiment(
+            run_config=run_config, evaluation_results=evaluation_results
+        )
     else:
-        experiment = Experiment(run_config=run_config, model=model, run_history=run_history, evaluation_results=evaluation_results)
-    
+        experiment = Experiment(
+            run_config=run_config,
+            model=model,
+            run_history=run_history,
+            evaluation_results=evaluation_results,
+        )
+
     gc.collect()
     torch.cuda.empty_cache()
 
@@ -129,21 +202,84 @@ def perform_sweep(
         Float[torch.Tensor, "num_real_weighted_networks num_nodes num_nodes"]
     ] = None,
     save_only_evaluations: Optional[bool] = False,
-    device: Optional[Union[torch.device,str]] = None,
+    device: Optional[Union[torch.device, str]] = None,
 ) -> List[Experiment]:
-    """Perform a parameter sweep over the specified configuration.
+    r"""Perform a parameter sweep over multiple model configurations.
+
+    This function systematically explores a parameter space by running the generative
+    network model with different parameter combinations. It generates and evaluates
+    synthetic networks for each configuration, returning a list of experiments.
 
     Args:
         sweep_config:
-            Configuration for the parameter sweep
-        num_simulations:
-            Number of simulations to run for each parameter combination
-        evaluation_criterion:
-            Evaluation criterion to use for comparing synthetic and real networks
+            Configuration for the parameter sweep, defining the parameter space to explore.
+
+        binary_evaluations:
+            List of criteria for evaluating binary network properties.
+            Defaults to None (no binary evaluation).
+
+        weighted_evaluations:
+            List of criteria for evaluating weighted network properties.
+            Defaults to None (no weighted evaluation).
+
         real_binary_matrices:
-            Real binary networks to compare synthetic networks against
+            Real binary networks to compare synthetic networks against.
+            Required if binary_evaluations is provided.
+
         real_weighted_matrices:
-            Real weighted networks to compare synthetic networks against
+            Real weighted networks to compare synthetic networks against.
+            Required if weighted_evaluations is provided.
+
+        save_only_evaluations:
+            If True, only saves evaluation results and discards the model and history
+            to save memory. Useful for large sweeps. Defaults to False.
+
+        device:
+            Device to run the models on. If None, uses CUDA if available, else CPU.
+
+    Returns:
+        A list of Experiment objects, one for each parameter combination in the sweep.
+
+    Examples:
+        >>> import torch
+        >>> from gnm.generative_rules import MatchingIndex
+        >>> from gnm.fitting import BinarySweepParameters, SweepConfig, perform_sweep
+        >>> from gnm.evaluation import ClusteringKS
+        >>> from gnm.defaults import get_binary_network, get_distance_matrix
+        >>> # Define parameter space
+        >>> binary_sweep = BinarySweepParameters(
+        ...     eta=torch.tensor([-3.0, -2.0, -1.0]),
+        ...     gamma=torch.tensor([0.2, 0.3]),
+        ...     lambdah=torch.tensor([0.0]),
+        ...     distance_relationship_type=["powerlaw"],
+        ...     preferential_relationship_type=["powerlaw"],
+        ...     heterochronicity_relationship_type=["powerlaw"],
+        ...     generative_rule=[MatchingIndex()],
+        ...     num_iterations=[100],
+        ... )
+        >>> # Create sweep configuration
+        >>> sweep_config = SweepConfig(
+        ...     binary_sweep_parameters=binary_sweep,
+        ...     num_simulations=50,
+        ...     distance_matrices=[get_distance_matrix()],
+        ... )
+        >>> # Define evaluation
+        >>> binary_evals = [ClusteringKS()]
+        >>> real_networks = get_binary_network()
+        >>> # Run the sweep
+        >>> experiments = perform_sweep(
+        ...     sweep_config=sweep_config,
+        ...     binary_evaluations=binary_evals,
+        ...     real_binary_matrices=real_networks,
+        ...     save_only_evaluations=True,  # Save memory during sweep
+        ... )
+        >>> len(experiments)
+        6
+
+    See Also:
+        - [`fitting.SweepConfig`][gnm.fitting.SweepConfig]: Configuration for parameter sweeps
+        - [`fitting.perform_run`][gnm.fitting.perform_run]: Function for running a single configuration
+        - [`fitting.optimise_evaluation`][gnm.fitting.optimise_evaluation]: Function for finding optimal parameters
     """
     run_results = []
 
@@ -186,9 +322,79 @@ def perform_evaluations(
     real_weighted_matrices: Optional[
         Float[torch.Tensor, "num_real_weighted_networks num_nodes num_nodes"]
     ] = None,
-    device: Optional[Union[torch.device,str]] = None,
+    device: Optional[Union[torch.device, str]] = None,
 ) -> EvaluationResults:
-    
+    r"""Evaluate synthetic networks against real networks using various criteria.
+
+    This function compares networks generated by a model against real networks using
+    the specified evaluation criteria. It performs both binary and weighted evaluations
+    if the corresponding parameters are provided.
+
+    Args:
+        model:
+            The generative network model containing the synthetic networks to evaluate.
+
+        binary_evaluations:
+            List of criteria for evaluating binary network properties.
+            Defaults to None (no binary evaluation).
+        weighted_evaluations:
+            List of criteria for evaluating weighted network properties.
+            Defaults to None (no weighted evaluation).
+        real_binary_matrices:
+            Real binary networks to compare synthetic networks against.
+            Required if binary_evaluations is provided.
+        real_weighted_matrices:
+            Real weighted networks to compare synthetic networks against.
+            Required if weighted_evaluations is provided.
+        device:
+            Device to perform the evaluations on. If None, uses CUDA if available, else CPU.
+
+    Returns:
+        An EvaluationResults object containing the results of all evaluations.
+
+    Examples:
+        >>> from gnm import GenerativeNetworkModel, BinaryGenerativeParameters
+        >>> from gnm.generative_rules import MatchingIndex
+        >>> from gnm.fitting import perform_evaluations
+        >>> from gnm.evaluation import ClusteringKS, DegreeKS
+        >>> from gnm.defaults import get_binary_network, get_distance_matrix
+        >>> # Create and run a model
+        >>> binary_params = BinaryGenerativeParameters(
+        ...     eta=-2.0,
+        ...     gamma=0.3,
+        ...     lambdah=0.0,
+        ...     distance_relationship_type="powerlaw",
+        ...     preferential_relationship_type="powerlaw",
+        ...     heterochronicity_relationship_type="powerlaw",
+        ...     generative_rule=MatchingIndex(),
+        ...     num_iterations=100,
+        ... )
+        >>> model = GenerativeNetworkModel(
+        ...     binary_parameters=binary_params,
+        ...     num_simulations=15,
+        ...     distance_matrix=get_distance_matrix(),
+        ... )
+        >>> _, _, _ = model.run_model()
+        >>> # Define evaluations
+        >>> binary_evals = [ClusteringKS(), DegreeKS()]
+        >>> real_networks = get_binary_network()
+        >>> # Perform evaluations
+        >>> eval_results = perform_evaluations(
+        ...     model=model,
+        ...     binary_evaluations=binary_evals,
+        ...     real_binary_matrices=real_networks,
+        ... )
+        >>> # Access results
+        >>> clustering_scores = eval_results.binary_evaluations["ClusteringKS"]
+        >>> degree_scores = eval_results.binary_evaluations["DegreeKS"]
+
+    See Also:
+        - [`evaluation.BinaryEvaluationCriterion`][gnm.evaluation.BinaryEvaluationCriterion]: Criteria for binary networks
+        - [`evaluation.WeightedEvaluationCriterion`][gnm.evaluation.WeightedEvaluationCriterion]: Criteria for weighted networks
+        - [`fitting.EvaluationResults`][gnm.fitting.EvaluationResults]: Container for evaluation results
+        - [`GenerativeNetworkModel`][gnm.GenerativeNetworkModel]: The model being evaluated
+    """
+
     if binary_evaluations is not None:
         for evaluation in binary_evaluations:
             assert (
@@ -212,7 +418,7 @@ def perform_evaluations(
         except AssertionError as e:
             raise AssertionError(f"real_weighted_matrices are not valid. {e}")
 
-    # Move the experiment onto the desired device. 
+    # Move the experiment onto the desired device.
     if device is not None:
         model.to_device(device)
         if isinstance(device, str):
@@ -253,4 +459,3 @@ def perform_evaluations(
         binary_evaluations=binary_evaluations_results,
         weighted_evaluations=weighted_evaluations_results,
     )
-

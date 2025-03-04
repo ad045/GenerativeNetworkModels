@@ -310,7 +310,7 @@ class GenerativeNetworkModel:
         >>> model = GenerativeNetworkModel(
         ...     binary_parameters=binary_parameters,
         ...     num_simulations=100, # Run 100 networks in parallel
-        ...     distance_matrix=get_distance_matrix(),
+        ...     distance_matrix=distance_matrix,
         ...     weighted_parameters=weighted_parameters,
         ... )
         >>> model.run_model()

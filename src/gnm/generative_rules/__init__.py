@@ -6,6 +6,7 @@ These rules produce affinity matrices that represent the likelihood of
 connections forming between pairs of nodes.
 
 The rules fall into several categories:
+
 - Homophily-based rules (MatchingIndex, Neighbours): Nodes connect based on shared neighborhoods
 - Clustering-based rules: Nodes connect based on clustering coefficient relationships
 - Degree-based rules: Nodes connect based on node degree relationships
