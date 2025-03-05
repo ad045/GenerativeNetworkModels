@@ -108,7 +108,9 @@ def binary_clustering_coefficients(
 
     clustering = torch.zeros_like(number_of_triangles)
     mask = number_of_pairs > 0
-    clustering[mask] = 2 * number_of_triangles[mask] / number_of_pairs[mask]
+
+    # removed 2 * to match BCT output
+    clustering[mask] = number_of_triangles[mask] / number_of_pairs[mask]
     return clustering
 
 
@@ -157,16 +159,12 @@ def weighted_clustering_coefficients(
     """
     weighted_checks(weight_matrices)
 
+    # each triange to exponent of 1/3 for cube root norm
+    normalised_w = torch.pow(weight_matrices, 1/3)
+
     # Get max weight for normalization (keeping batch dims)
-    max_weight = weight_matrices.amax(dim=(-2, -1), keepdim=True)  # [*batch, 1, 1]
-
-    # Normalize weights
-    normalised_w = (weight_matrices / max_weight) ** (
-        1 / 3
-    )  # [*batch, num_nodes, num_nodes]
-
-    # Get node strengths (sum of weights)
-    node_strenghts = weight_matrices.sum(dim=-1)  # [*batch, num_nodes]
+    max_weight = normalised_w.amax(dim=(-2, -1), keepdim=True)  # [*batch, 1, 1]
+    normalised_w = normalised_w / max_weight 
 
     # For each node u, compute the geometric mean of triangle weights:
     # (w_uv * w_vw * w_wu) ^ (1/3)
@@ -174,10 +172,13 @@ def weighted_clustering_coefficients(
         torch.matmul(torch.matmul(normalised_w, normalised_w), normalised_w),
         dim1=-2,
         dim2=-1,
-    )  # [*batch, num_nodes]
+    ) # [*batch, num_nodes]
 
-    # Compute denominator k * (k-1)
-    denom = node_strenghts * (node_strenghts - 1)  # [*batch, num_nodes]
+    # Get node strengths (sum of weights)
+    degree = torch.sum(weight_matrices > 0, dim=-1)  # [*batch, num_nodes]
+
+    # Compute denominator k * (k-1) (k = degree)
+    denom = degree * (degree - 1)  # [*batch, num_nodes]
 
     # Handle division by zero - set clustering to 0 where k <= 1
     clustering = torch.zeros_like(triangles)

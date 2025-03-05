@@ -50,6 +50,13 @@ def compare_weighted_clustering_coefficients(connectome:np.array):
     gnm_clust = gnm_clust.cpu().numpy()
     gnm_clust = gnm_clust.reshape(-1)
     bct_clust = bct.clustering_coef_wu(connectome)
+
+    # nx_graph = nx.from_numpy_array(connectome)
+    # nx_clust_coef = nx.clustering(nx_graph)
+    # nx_clust_coef = np.array(list(nx_clust_coef.values()))
+
+    print(gnm_clust)
+    print(bct_clust)
     compare_exact(gnm_clust, bct_clust, 'Weighted Clustering Coefficient')
 
 def compare_binary_betweenness_centrality(connectome:np.array):
@@ -70,7 +77,7 @@ binary_connectome = np.where(weighted_connectome > 0.3, 1, 0)
 binary_connectome = np.maximum(binary_connectome, binary_connectome.T) # symmetry
 np.fill_diagonal(binary_connectome, 0) # no self-connections
 
-compare_binary_clustering_coefficients(binary_connectome)
+# compare_binary_clustering_coefficients(binary_connectome)
 compare_weighted_clustering_coefficients(weighted_connectome)
-compare_binary_betweenness_centrality(binary_connectome)
-compare_node_strength(weighted_connectome)
+# compare_binary_betweenness_centrality(binary_connectome)
+# compare_node_strength(weighted_connectome)
