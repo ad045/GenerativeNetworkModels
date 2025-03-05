@@ -11,6 +11,16 @@
         members:
             - __call__
 
+::: gnm.weight_criteria.ScaledCriterion
+    options:
+        members:
+            - __init__
+
+::: gnm.weight_criteria.LinearCombinationCriterion
+    options:
+        members:
+            - __init__
+
 ## Basic Weight Criteria
 
 ::: gnm.weight_criteria.Weight

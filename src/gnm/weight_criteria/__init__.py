@@ -17,6 +17,8 @@ the optimisation process toward different objective functions.
 
 from .optimisation_criteria import (
     OptimisationCriterion,
+    ScaledCriterion,
+    LinearCombinationCriterion,
     Communicability,
     NormalisedCommunicability,
     DistanceWeightedCommunicability,
@@ -29,6 +31,8 @@ from .optimisation_criteria import (
 
 __all__ = [
     "OptimisationCriterion",
+    "ScaledCriterion",
+    "LinearCombinationCriterion",
     "Communicability",
     "NormalisedCommunicability",
     "DistanceWeightedCommunicability",

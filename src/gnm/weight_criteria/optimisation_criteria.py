@@ -1,6 +1,6 @@
 import torch
 from jaxtyping import Float, jaxtyped
-from typing import Union
+from typing import Union, List
 from typeguard import typechecked
 from abc import ABC, abstractmethod
 
@@ -39,6 +39,172 @@ class OptimisationCriterion(ABC):
         """Compute the final criterion $L(W)$ for optimisation of the network weights."""
         pass
 
+    @jaxtyped(typechecker=typechecked)
+    def __rmul__(self, coefficient: float) -> "ScaledCriterion":
+        return ScaledCriterion(self, coefficient)
+
+    @jaxtyped(typechecker=typechecked)
+    def __mul__(self, coefficient: float) -> "ScaledCriterion":
+        return ScaledCriterion(self, coefficient)
+
+    @jaxtyped(typechecker=typechecked)
+    def __add__(
+        self, criterion: "OptimisationCriterion"
+    ) -> "LinearCombinationCriterion":
+        return LinearCombinationCriterion(
+            weight_criteria=[self, criterion], coefficients=[1.0, 1.0]
+        )
+
+    @jaxtyped(typechecker=typechecked)
+    def __sub__(
+        self, criterion: "OptimisationCriterion"
+    ) -> "LinearCombinationCriterion":
+        return LinearCombinationCriterion(
+            weight_criteria=[self, criterion], coefficients=[1.0, -1.0]
+        )
+
+    def __eq__(self, criterion: "OptimisationCriterion") -> bool:
+        return str(self) == str(criterion)
+
+
+class ScaledCriterion(OptimisationCriterion):
+    r"""Scaled optimisation criterion.
+
+    This class scales an existing optimisation criterion by a given coefficient.
+
+    Examples:
+        >>> import torch
+        >>> from gnm.weight_criteria import Communicability, ScaledCriterion
+        >>> # Define the scaled criterion directly
+        >>> scaled_communicability_direct = ScaledCriterion(weight_criterion=Communicability(), coefficient=2.4)
+        >>> # Define the scaled criterion indirectly
+        >>> scaled_communicability_indirect = 2.4 * Communicability()
+        >>> # Check that the two definitions are equivalent
+        >>> scaled_communicability_direct == scaled_communicability_indirect
+        True
+        >>> # Verify that scaling works as intended
+        >>> communiability = Communicability()
+        >>> from gnm.defaults import get_weighted_network
+        >>> weight_matrix = get_weighted_network()
+        >>> ( scaled_communicability_direct(weight_matrix) == 2.4 * communicability(weight_matrix) ).item()
+        True
+
+    See Also:
+        - [`weight_criteria.OptimisationCriterion`][gnm.weight_criteria.OptimisationCriterion]: Base class for defining custom optimisation criteria, from which this class inherits.
+        - [`weight_criteria.LinearCombinationCriterion`][gnm.weight_criteria.LinearCombinationCriterion]: Linear combination of multiple optimisation criteria.
+    """
+
+    @jaxtyped(typechecker=typechecked)
+    def __init__(self, weight_criterion: OptimisationCriterion, coefficient: float):
+        r"""
+        Args:
+            weight_criterion:
+                The optimisation criterion to scale.
+            coefficient:
+                The coefficient by which to scale the criterion.
+        """
+
+        self.criterion = weight_criterion
+        self.coefficient = coefficient
+
+    def __str__(self) -> str:
+        return (
+            f"{str(self.criterion)} (coefficient={self.coefficient})"
+            if self.coefficient != 1.0
+            else str(self.criterion)
+        )
+
+    @jaxtyped(typechecker=typechecked)
+    def __call__(
+        self, weight_matrix: Float[torch.Tensor, "num_simulations num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "num_simulations"]:
+        return self.coefficient * self.criterion(weight_matrix)
+
+
+class LinearCombinationCriterion(OptimisationCriterion):
+    r"""Linear combination optimisation criterion.
+
+    This class allows for the combination of multiple optimisation criteria into a single criterion via a weighted sum.
+
+    Examples:
+        >>> from gnm.weight_criteria import Communicability, Weight, LinearCombinationCriterion
+        >>> # Define a linear combination criterion directly
+        >>> lc_direct = LinearCombinationCriterion(weight_criteria=[Communicability(), Weight()], coefficients=[1.0,-0.5])
+        >>> # Define a linear combination cirterion indirectly
+        >>> lc_indirect = Communicability() - 0.5 * Weight()
+        >>> # Check that these are equivalent
+        >>> lc_direct == lc_indirect
+        True
+        >>> str(lc_direct)
+        'LinearCombinationCriterion(Communicability, Weight (coefficient=-0.5))'
+
+    See Also:
+        - [`weight_criteria.OptimisationCriterion`][gnm.weight_criteria.OptimisationCriterion]: Base class for defining custom optimisation criteria, from which this class inherits.
+        - [`weight_criteria.ScaledCriterion`][gnm.weight_criteria.ScaledCriterion]: Scaled version of a single optimisation criterion.
+    """
+
+    @jaxtyped(typechecker=typechecked)
+    def __init__(
+        self, weight_criteria: List[OptimisationCriterion], coefficients: List[float]
+    ):
+        r"""
+        Args:
+            weight_criteria:
+                List of optimisation criteria to combine.
+            coefficients:
+                List of coefficients to apply to each criterion.
+        """
+        assert len(weight_criteria) == len(
+            coefficients
+        ), f"List of weight criteria and coefficients must be the same length. Got {len(weight_criteria)} and {len(coefficients)} respectively."
+
+        self.weight_criteria = []
+        self.coefficients = []
+
+        for ii in range(len(weight_criteria)):
+            if isinstance(weight_criteria[ii], LinearCombinationCriterion):
+                self.weight_criteria.extend(weight_criteria[ii].weight_criteria)
+                self.coefficients.extend(
+                    [
+                        coefficients[ii] * coeff
+                        for coeff in weight_criteria[ii].coefficients
+                    ]
+                )
+            else:
+                self.weight_criteria.append(weight_criteria[ii])
+                self.coefficients.append(coefficients[ii])
+
+        for ii in range(len(self.weight_criteria)):
+            if isinstance(self.weight_criteria[ii], ScaledCriterion):
+                self.coefficients[ii] = (
+                    self.coefficients[ii] * self.weight_criteria[ii].coefficient
+                )
+                self.weight_criteria[ii] = self.weight_criteria[ii].criterion
+
+    def __str__(self) -> str:
+        criteria_str = ", ".join(
+            (
+                f"{str(criterion)} (coefficient={coefficient})"
+                if coefficient != 1.0
+                else str(criterion)
+            )
+            for criterion, coefficient in zip(self.weight_criteria, self.coefficients)
+        )
+        return f"LinearCombinationCriterion({criteria_str})"
+
+    @jaxtyped(typechecker=typechecked)
+    def __call__(
+        self, weight_matrix: Float[torch.Tensor, "num_simulations num_nodes num_nodes"]
+    ) -> Float[torch.Tensor, "num_simulations"]:
+        return torch.stack(
+            [
+                coefficient * criterion(weight_matrix)
+                for criterion, coefficient in zip(
+                    self.weight_criteria, self.coefficients
+                )
+            ]
+        ).sum(dim=0)
+
 
 class Communicability(OptimisationCriterion):
     r"""Communicability optimisation criterion.
@@ -61,7 +227,6 @@ class Communicability(OptimisationCriterion):
     $$
 
     Examples:
-        >>> import torch
         >>> from gnm.weight_criteria import Communicability
         >>> from gnm.defaults import get_weighted_network
         >>> # Create a communicability criterion with default parameters
@@ -116,7 +281,6 @@ class NormalisedCommunicability(OptimisationCriterion):
     $$
 
     Examples:
-        >>> import torch
         >>> from gnm.weight_criteria import NormalisedCommunicability
         >>> from gnm.defaults import get_weighted_network
         >>> # Create a normalied communicability criterion with default parameters
@@ -180,7 +344,6 @@ class DistanceWeightedCommunicability(OptimisationCriterion):
     $$
 
     Examples:
-        >>> import torch
         >>> from gnm.weight_criteria import DistanceWeightedCommunicability
         >>> from gnm.defaults import get_weighted_network, get_distance_matrix
         >>> # Create a distance-weighted communicability criterion with default parameters
@@ -267,7 +430,6 @@ class NormalisedDistanceWeightedCommunicability(OptimisationCriterion):
     $$
 
     Examples:
-        >>> import torch
         >>> from gnm.weight_criteria import NormalisedDistanceWeightedCommunicability
         >>> from gnm.defaults import get_weighted_network, get_distance_matrix
         >>> # Create a normalised distance-weighted communicability criterion with default parameters
@@ -357,7 +519,6 @@ class WeightedDistance(OptimisationCriterion):
     $$
 
     Examples:
-        >>> import torch
         >>> from gnm.weight_criteria import WeightedDistance
         >>> from gnm.defaults import get_weighted_network, get_distance_matrix
         >>> # Create a weighted distance criterion with default parameters
@@ -428,7 +589,6 @@ class NormalisedWeightedDistance(OptimisationCriterion):
     $$
 
     Examples:
-        >>> import torch
         >>> from gnm.weight_criteria import NormalisedWeightedDistance
         >>> from gnm.defaults import get_weighted_network, get_distance_matrix
         >>> # Create a normalised weighted distance criterion with default parameters
@@ -497,7 +657,6 @@ class Weight(OptimisationCriterion):
     $$
 
     Examples:
-        >>> import torch
         >>> from gnm.weight_criteria import Weight
         >>> from gnm.defaults import get_weighted_network
         >>> # Create a weight criterion with default parameters
@@ -547,7 +706,6 @@ class NormalisedWeight(OptimisationCriterion):
     $$
 
     Examples:
-        >>> import torch
         >>> from gnm.weight_criteria import NormalisedWeight
         >>> from gnm.defaults import get_weighted_network
         >>> # Create a normalised weight criterion with default parameters
