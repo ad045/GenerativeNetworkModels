@@ -7,7 +7,7 @@ The aim of this project was to make GNMs more accessable to the wider research c
 
 ## Table of Contents
 - [Getting Started](getting-started.md)
-- [User Guide](user-guide.md)
+- [User Guide](user-guide/index.md)
 - [API Reference](api-reference/index.md)
     - [model](api-reference/model.md)
     - [gnm.generative_rules](api-reference/generative-rules.md)
