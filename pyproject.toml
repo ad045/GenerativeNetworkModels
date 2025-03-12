@@ -70,9 +70,9 @@ Documentation = "https://generative-network-models-toolbox.readthedocs.io/en/lat
 Repository = "https://github.com/EdwardJamesYoung/GenerativeNetworkModels.git"
 "Bug Tracker" = "https://github.com/EdwardJamesYoung/GenerativeNetworkModels/issues"
 
-[tool.setuptools]
-# Package discovery settings
-packages = { find = { namespaces = true } }
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["gnm*"]
 
 [tool.setuptools.package-data]
 # Include any package data files
