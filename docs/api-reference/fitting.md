@@ -31,11 +31,13 @@
 
 ::: gnm.fitting.RunHistory
     options:
-        members: []
+        members: 
+            - to_device
 
 ::: gnm.fitting.EvaluationResults
     options:
-        members: []
+        members: 
+            - to_device
 
 ## Performing sweeps and evaluations
 

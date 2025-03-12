@@ -61,7 +61,8 @@ def perform_run(
     real_weighted_matrices: Optional[
         Float[torch.Tensor, "num_real_weighted_networks num_nodes num_nodes"]
     ] = None,
-    save_only_evaluations: Optional[bool] = False,
+    save_model: bool = True,
+    save_run_history: bool = True,
     device: Optional[Union[torch.device, str]] = None,
 ) -> Experiment:
     r"""Perform a single run of the generative network model.
@@ -85,9 +86,12 @@ def perform_run(
         real_weighted_matrices:
             Real weighted networks to compare synthetic networks against.
             Required if weighted_evaluations is provided.
-        save_only_evaluations:
-            If True, only saves evaluation results and discards the model and history
-            to save memory. Defaults to False.
+        save_model:
+            If True, saves the model in the experiment. Set this argument to False to save on memory.
+            Defaults to True.
+        save_run_history:
+            If True, saves the adjacency and weight snapshots in the run history.
+            Set this argument to False to save on memory. Defaults to True.
         device:
             Device to run the model on. If unspecified, uses CUDA if available, else CPU.
 
@@ -163,17 +167,14 @@ def perform_run(
         device=device,
     )
 
-    if save_only_evaluations:
-        experiment = Experiment(
-            run_config=run_config, evaluation_results=evaluation_results
-        )
-    else:
-        experiment = Experiment(
-            run_config=run_config,
-            model=model,
-            run_history=run_history,
-            evaluation_results=evaluation_results,
-        )
+    experiment = Experiment(
+        run_config=run_config,
+        model=model if save_model else None,
+        run_history=run_history if save_run_history else None,
+        evaluation_results=evaluation_results,
+    )
+
+    experiment.to_device("cpu")
 
     gc.collect()
     torch.cuda.empty_cache()
@@ -201,7 +202,8 @@ def perform_sweep(
     real_weighted_matrices: Optional[
         Float[torch.Tensor, "num_real_weighted_networks num_nodes num_nodes"]
     ] = None,
-    save_only_evaluations: Optional[bool] = False,
+    save_model: bool = True,
+    save_run_history: bool = True,
     device: Optional[Union[torch.device, str]] = None,
 ) -> List[Experiment]:
     r"""Perform a parameter sweep over multiple model configurations.
@@ -230,9 +232,13 @@ def perform_sweep(
             Real weighted networks to compare synthetic networks against.
             Required if weighted_evaluations is provided.
 
-        save_only_evaluations:
-            If True, only saves evaluation results and discards the model and history
-            to save memory. Useful for large sweeps. Defaults to False.
+        save_model:
+            If True, saves the model in the experiment. Set this argument to False to save on memory.
+            Defaults to True.
+
+        save_run_history:
+            If True, saves the adjacency and weight snapshots in the run history.
+            Set this argument to False to save on memory. Defaults to True.
 
         device:
             Device to run the models on. If None, uses CUDA if available, else CPU.
@@ -290,7 +296,8 @@ def perform_sweep(
             weighted_evaluations=weighted_evaluations,
             real_binary_matrices=real_binary_matrices,
             real_weighted_matrices=real_weighted_matrices,
-            save_only_evaluations=save_only_evaluations,
+            save_model=save_model,
+            save_run_history=save_run_history,
             device=device,
         )
 

@@ -325,6 +325,21 @@ class RunConfig:
         ]
     ] = None
 
+    def to_device(self, device: Union[torch.device, str]):
+        r"""Moves all tensors in the run configuration to a specified device.
+
+        Args:
+            device: The device to move all tensors to.
+        """
+        if self.seed_adjacency_matrix is not None:
+            self.seed_adjacency_matrix = self.seed_adjacency_matrix.to(device)
+        if self.distance_matrix is not None:
+            self.distance_matrix = self.distance_matrix.to(device)
+        if self.seed_weight_matrix is not None:
+            self.seed_weight_matrix = self.seed_weight_matrix.to(device)
+        if self.heterochronous_matrix is not None:
+            self.heterochronous_matrix = self.heterochronous_matrix.to(device)
+
 
 @dataclass
 class SweepConfig:
@@ -422,7 +437,7 @@ class SweepConfig:
             ]
         ]
     ] = None
-    distance_matrices: Optional[List[Float[torch.Tensor, "num_nodes num_nodes"]]] = None
+    distance_matrix: Optional[List[Float[torch.Tensor, "num_nodes num_nodes"]]] = None
     weighted_sweep_parameters: Optional[WeightedSweepParameters] = None
     seed_weight_matrix: Optional[
         List[
@@ -459,7 +474,7 @@ class SweepConfig:
             else [None]
         )
         distance_list = (
-            self.distance_matrices if self.distance_matrices is not None else [None]
+            self.distance_matrix if self.distance_matrix is not None else [None]
         )
         heterochronous_list = (
             self.heterochronous_matrix
@@ -562,6 +577,17 @@ class EvaluationResults:
         str, Float[torch.Tensor, "num_real_weighted_networks num_simulations"]
     ]
 
+    def to_device(self, device: Union[torch.device, str]):
+        r"""Moves the evalution results to a specified device.
+
+        Args:
+            device: The device to move all tensors to.
+        """
+        for key, value in self.binary_evaluations.items():
+            self.binary_evaluations[key] = value.to(device)
+        for key, value in self.weighted_evaluations.items():
+            self.weighted_evaluations[key] = value.to(device)
+
 
 @dataclass
 class RunHistory:
@@ -628,13 +654,26 @@ class RunHistory:
         - [`fitting.perform_run`][gnm.fitting.perform_run]: Function that produces run histories
     """
 
-    added_edges: Int[torch.Tensor, "num_binary_updates num_simulations 2"]
-    adjacency_snapshots: Float[
-        torch.Tensor, "num_binary_updates num_simulations num_nodes num_nodes"
+    added_edges: Optional[Int[torch.Tensor, "num_binary_updates num_simulations 2"]]
+    adjacency_snapshots: Optional[
+        Float[torch.Tensor, "num_binary_updates num_simulations num_nodes num_nodes"]
     ]
     weight_snapshots: Optional[
         Float[torch.Tensor, "num_weight_updates num_simulations num_nodes num_nodes"]
     ]
+
+    def to_device(self, device: Union[torch.device, str]):
+        r"""Moves the run history to a specified device.
+
+        Args:
+            device: The device to move all tensors to.
+        """
+        if self.added_edges is not None:
+            self.added_edges = self.added_edges.to(device)
+        if self.adjacency_snapshots is not None:
+            self.adjacency_snapshots = self.adjacency_snapshots.to(device)
+        if self.weight_snapshots is not None:
+            self.weight_snapshots = self.weight_snapshots.to(device)
 
 
 @dataclass
@@ -707,18 +746,12 @@ class Experiment:
         Args:
             device: The device to move all tensors to.
         """
-        self.model.to_device(device)
-        self.results.adjacency_snapshots = self.results.adjacency_snapshots.to(device)
-        self.results.weight_snapshots = (
-            self.results.weight_snapshots.to(device)
-            if self.results.weight_snapshots is not None
-            else None
-        )
-        self.results.added_edges = self.results.added_edges.to(device)
-        for key, value in self.results.binary_evaluations.items():
-            self.results.binary_evaluations[key] = value.to(device)
-        for key, value in self.results.weighted_evaluations.items():
-            self.results.weighted_evaluations[key] = value.to(device)
+        self.evaluation_results.to_device(device)
+        self.run_config.to_device(device)
+        if self.model is not None:
+            self.model.to_device(device)
+        if self.run_history is not None:
+            self.run_history.to_device(device)
 
         gc.collect()
         torch.cuda.empty_cache()

@@ -44,6 +44,7 @@ class WeightedNodeStrengthKS(KSCriterion, WeightedEvaluationCriterion):
         - [`evaluation_base.WeightedEvaluationCriterion`][gnm.evaluation.evaluation_base.WeightedEvaluationCriterion]: The base class for weighted criteria, from which this class inherits.
     """
 
+    @jaxtyped(typechecker=typechecked)
     def __init__(self, normalise: Optional[bool] = True):
         r"""
         Args:
@@ -113,6 +114,7 @@ class WeightedBetweennessKS(KSCriterion, WeightedEvaluationCriterion):
         - [`evaluation_base.WeightedEvaluationCriterion`][gnm.evaluation.evaluation_base.WeightedEvaluationCriterion]: The base class for weighted criteria, from which this class inherits.
     """
 
+    @jaxtyped(typechecker=typechecked)
     def __init__(self, normalise: Optional[bool] = True):
         """
         Args:

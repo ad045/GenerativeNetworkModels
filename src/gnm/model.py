@@ -420,13 +420,14 @@ class GenerativeNetworkModel:
                 print(
                     "Number of simulations unspecified. Extracting from seed adjacency matrix."
                 )
-                self.num_simulations = distance_matrix.shape[0]
+                self.num_simulations = seed_adjacency_matrix.shape[0]
 
         if seed_weight_matrix is not None and self.num_simulations is None:
             if len(seed_weight_matrix.shape) == 3:
                 print(
                     "Number of simulations unspecified. Extracting from seed weight matrix."
                 )
+                self.num_simulations = seed_weight_matrix.shape[0]
 
         if self.num_simulations is None:
             print("Number of simulations unspecified. Defaulting to 1.")
@@ -595,6 +596,13 @@ class GenerativeNetworkModel:
             ), f"Seed weight matrix is incorrect shape. Expected ({self.num_simulations}, {self.num_nodes}, {self.num_nodes}), got {seed_weight_matrix.shape}"
 
         weighted_checks(seed_weight_matrix)
+
+        # Check whether the seed weight matrix has support where the binary adjacency matrix is zero.
+        if torch.any(seed_weight_matrix * (1 - self.adjacency_matrix) > 0):
+            print(
+                "Warning: Seed weight matrix has support where the adjacency matrix is zero. Setting these weights to zero."
+            )
+            seed_weight_matrix = seed_weight_matrix * self.adjacency_matrix
 
         self.seed_weight_matrix = seed_weight_matrix
 
@@ -853,12 +861,14 @@ class GenerativeNetworkModel:
             ]
         ] = None,
     ) -> Tuple[
-        Int[
-            torch.Tensor, "num_binary_updates {self.num_simulations} 2"
+        Optional[
+            Int[torch.Tensor, "num_binary_updates {self.num_simulations} 2"]
         ],  # added edges for each update
-        Float[
-            torch.Tensor,
-            "num_binary_updates {self.num_simulations} {self.num_nodes} {self.num_nodes}",
+        Optional[
+            Float[
+                torch.Tensor,
+                "num_binary_updates {self.num_simulations} {self.num_nodes} {self.num_nodes}",
+            ]
         ],  # Adjacency snapshots
         Optional[
             Float[
@@ -889,15 +899,19 @@ class GenerativeNetworkModel:
         total_binary_updates = num_iterations * binary_updates_per_iteration
 
         # Initialize snapshots with steps and batch dimensions at start
-        adjacency_snapshots = torch.zeros(
-            (
-                total_binary_updates,
-                self.num_simulations,
-                self.num_nodes,
-                self.num_nodes,
-            ),
-            device=self.device,
-            dtype=self.adjacency_matrix.dtype,
+        adjacency_snapshots = (
+            torch.zeros(
+                (
+                    total_binary_updates,
+                    self.num_simulations,
+                    self.num_nodes,
+                    self.num_nodes,
+                ),
+                device=self.device,
+                dtype=self.adjacency_matrix.dtype,
+            )
+            if total_binary_updates > 0
+            else None
         )
 
         if self.weighted_parameters is not None:
@@ -957,7 +971,9 @@ class GenerativeNetworkModel:
                 weight_snapshots[update_idx] = weight_matrix
 
         # stack the added edges
-        added_edges = torch.stack(added_edges_list, dim=0)
+        added_edges = (
+            torch.stack(added_edges_list, dim=0) if len(added_edges_list) > 0 else None
+        )
 
         return added_edges, adjacency_snapshots, weight_snapshots
 
