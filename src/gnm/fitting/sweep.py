@@ -22,6 +22,7 @@ from typing import List, Optional, Any, Union
 from jaxtyping import Float, jaxtyped
 from typeguard import typechecked
 import gc
+from tqdm import tqdm
 
 # import wandb
 
@@ -45,7 +46,9 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def perform_run(
     run_config: RunConfig,
     binary_evaluations: Optional[
-        List[Union[BinaryEvaluationCriterion, CompositeCriterion]]
+        List[
+            Union[BinaryEvaluationCriterion, CompositeCriterion]
+            ]
     ] = None,
     weighted_evaluations: Optional[
         List[
@@ -146,6 +149,7 @@ def perform_run(
         weighted_parameters=run_config.weighted_parameters,
         seed_weight_matrix=run_config.seed_weight_matrix,
         device=device,
+        verbose=False
     )
 
     added_edges, adjacency_snapshots, weight_snapshots = model.run_model(
@@ -289,7 +293,7 @@ def perform_sweep(
     """
     run_results = []
 
-    for run_config in sweep_config:
+    for run_config in tqdm(sweep_config, desc='Configuration Iterations', total=len(list(sweep_config))):
         experiment = perform_run(
             run_config=run_config,
             binary_evaluations=binary_evaluations,
