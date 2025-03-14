@@ -381,10 +381,6 @@ class GenerativeNetworkModel:
                         if weight matrix doesn't match adjacency support.
         """
 
-        def vprint(msg):
-            if verbose:
-                print(msg)
-
         self.verbose = verbose
         self.binary_parameters = binary_parameters
 
@@ -398,20 +394,20 @@ class GenerativeNetworkModel:
         if num_nodes is not None:
             self.num_nodes = num_nodes
         elif distance_matrix is not None:
-            vprint("Number of nodes unspecified. Extracting from distance matrix.")
+            self.vprint("Number of nodes unspecified. Extracting from distance matrix.")
             self.num_nodes = distance_matrix.shape[-1]
         elif seed_adjacency_matrix is not None:
-            vprint("Number of nodes unspecified. Extracting from seed adjacency matrix.")
+            self.vprint("Number of nodes unspecified. Extracting from seed adjacency matrix.")
             self.num_nodes = seed_adjacency_matrix.shape[-1]
         elif seed_weight_matrix is not None:
-            vprint("Number of nodes unspecified. Extracting from seed weight matrix.")
+            self.vprint("Number of nodes unspecified. Extracting from seed weight matrix.")
             self.num_nodes = seed_weight_matrix.shape[-1]
         else:
             raise ValueError(
                 "Number of nodes unspecified. Please pass in either a distance matrix, seed adjacency matrix, seed weight matrix, or number of nodes."
             )
 
-        vprint(f"Number of nodes set to {self.num_nodes}")
+        self.vprint(f"Number of nodes set to {self.num_nodes}")
 
         # ---- Set the number of simulations to run ----
 
@@ -422,35 +418,35 @@ class GenerativeNetworkModel:
 
         if distance_matrix is not None and self.num_simulations is None:
             if len(distance_matrix.shape) == 3:
-                vprint(
+                self.vprint(
                     "Number of simulations unspecified. Extracting from distance matrix."
                 )
                 self.num_simulations = distance_matrix.shape[0]
 
         if seed_adjacency_matrix is not None and self.num_simulations is None:
             if len(seed_adjacency_matrix.shape) == 3:
-                vprint(
+                self.vprint(
                     "Number of simulations unspecified. Extracting from seed adjacency matrix."
                 )
                 self.num_simulations = seed_adjacency_matrix.shape[0]
 
         if seed_weight_matrix is not None and self.num_simulations is None:
             if len(seed_weight_matrix.shape) == 3:
-                vprint(
+                self.vprint(
                     "Number of simulations unspecified. Extracting from seed weight matrix."
                 )
                 self.num_simulations = seed_weight_matrix.shape[0]
 
         if self.num_simulations is None:
-            vprint("Number of simulations unspecified. Defaulting to 1.")
+            self.vprint("Number of simulations unspecified. Defaulting to 1.")
             self.num_simulations = 1
 
-        vprint(f"Number of simulations set to {self.num_simulations}")
+        self.vprint(f"Number of simulations set to {self.num_simulations}")
 
         # ---- Perform reshaping and checks on the seed adjacency matrix ----
 
         if seed_adjacency_matrix is None:
-            vprint("Seed adjacency matrix unspecified. Assuming empty network.")
+            self.vprint("Seed adjacency matrix unspecified. Assuming empty network.")
             self.seed_adjacency_matrix = torch.zeros(
                 (self.num_simulations, self.num_nodes, self.num_nodes),
                 dtype=torch.float32,
@@ -481,7 +477,7 @@ class GenerativeNetworkModel:
         # ---- Perform reshaping and checks on the distance matrix ----
 
         if distance_matrix is None:
-            vprint("Distance matrix unspecified. Assuming uniform distances.")
+            self.vprint("Distance matrix unspecified. Assuming uniform distances.")
             self.distance_matrix = torch.ones(
                 (self.num_simulations, self.num_nodes, self.num_nodes),
                 dtype=torch.float32,
@@ -539,6 +535,10 @@ class GenerativeNetworkModel:
             self.weight_matrix = None
             self.optimiser = None
 
+    def vprint(self, msg):
+        if self.verbose:
+            print(msg)
+
     @jaxtyped(typechecker=typechecked)
     def weighted_initialisation(
         self,
@@ -587,7 +587,7 @@ class GenerativeNetworkModel:
 
         # If user didn't provide seed_weight_matrix, initialise from adjacency.
         if seed_weight_matrix is None:
-            vprint(
+            self.vprint(
                 "No seed weight matrix provided. Initialising from seed adjacency matrix."
             )
             seed_weight_matrix = self.adjacency_matrix.clone()
@@ -611,7 +611,7 @@ class GenerativeNetworkModel:
 
         # Check whether the seed weight matrix has support where the binary adjacency matrix is zero.
         if torch.any(seed_weight_matrix * (1 - self.adjacency_matrix) > 0):
-            vprint(
+            self.vprint(
                 "Warning: Seed weight matrix has support where the adjacency matrix is zero. Setting these weights to zero."
             )
             seed_weight_matrix = seed_weight_matrix * self.adjacency_matrix
