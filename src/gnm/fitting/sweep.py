@@ -17,6 +17,7 @@ from gnm.evaluation import (
     WeightedEvaluationCriterion,
     CompositeCriterion,
 )
+from typing import Iterator
 import torch
 from typing import List, Optional, Any, Union
 from jaxtyping import Float, jaxtyped
@@ -297,7 +298,9 @@ def perform_sweep(
     """
     run_results = []
 
-    for run_config in tqdm(sweep_config, desc='Configuration Iterations', total=len(list(sweep_config)), disable=not verbose):
+    config_count = len(list(sweep_config))
+
+    for run_config in tqdm(sweep_config, desc='Configuration Iterations', total=config_count, disable=not verbose):
         experiment = perform_run(
             run_config=run_config,
             binary_evaluations=binary_evaluations,
