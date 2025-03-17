@@ -7,6 +7,7 @@ network modeling functionality. It includes:
 - **Graph properties**: Various network metrics and measures for analyzing graph structure
 - **Data validation**: Functions to verify the validity of network data structures
 - **Control networks**: Functions for generating control networks with preserved properties
+- **Convert Datatypes**: Functions to convert numpy and additional datatypes to GNM-compatible tensor
 
 These utilities handle both binary and weighted networks and are optimised
 for use with PyTorch tensors.
@@ -22,6 +23,7 @@ from .graph_properties import (
 )
 from .checks import binary_checks, weighted_checks
 from .control import get_control
+from .convert_datatypes import np_to_tensor
 
 __all__ = [
     "ks_statistic",
@@ -33,4 +35,5 @@ __all__ = [
     "binary_checks",
     "weighted_checks",
     "get_control",
+    "np_to_tensor"
 ]

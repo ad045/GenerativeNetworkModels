@@ -209,6 +209,7 @@ def perform_sweep(
     save_model: bool = True,
     save_run_history: bool = True,
     device: Optional[Union[torch.device, str]] = None,
+    verbose: Optional[bool] = False
 ) -> List[Experiment]:
     r"""Perform a parameter sweep over multiple model configurations.
 
@@ -246,6 +247,9 @@ def perform_sweep(
 
         device:
             Device to run the models on. If None, uses CUDA if available, else CPU.
+
+        verbose:
+            If True, displays a progress bar for the sweep. Defaults to False.
 
     Returns:
         A list of Experiment objects, one for each parameter combination in the sweep.
@@ -293,7 +297,7 @@ def perform_sweep(
     """
     run_results = []
 
-    for run_config in tqdm(sweep_config, desc='Configuration Iterations', total=len(list(sweep_config))):
+    for run_config in tqdm(sweep_config, desc='Configuration Iterations', total=len(list(sweep_config)), disable=not verbose):
         experiment = perform_run(
             run_config=run_config,
             binary_evaluations=binary_evaluations,
