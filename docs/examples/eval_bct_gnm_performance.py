@@ -100,8 +100,8 @@ print(f'Using device: {DEVICE} for GNM simulations')
 
 time_gnm = []
 time_bct = []
-df = {'connectome_size': [], 'density':[], 'time_bct': [], 'time_gnm': []}
-connectome_size_range = range(10, 300, 10)
+df = {'connectome_size': [], 'density':[], 'time_bct': []} # 'time_gnm': []
+connectome_size_range = range(250, 300, 10)
 density = np.linspace(0.1, 0.9, 9)
 
 for d in density:
@@ -128,15 +128,15 @@ for d in density:
         num_simulations = 100
         batch_size = 16
         
-        gnm_time = simulate_gnm(num_simulations, eta, gamma, binary_consensus_network_torch, batch_size)
+        #gnm_time = simulate_gnm(num_simulations, eta, gamma, binary_consensus_network_torch, batch_size)
         bct_time = simulate_bct(num_simulations, [eta], [gamma], binary_consensus_network_np, dist_matrix_np)
 
         df['connectome_size'].append(connectome_size)
         df['density'].append(d)
-        df['time_gnm'].append(bct_time)
+        #df['time_gnm'].append(bct_time)
         df['time_bct'].append(bct_time)
 
         # save as you go
         df_pd = pd.DataFrame(df)
-        df_pd.to_csv('results_combined.csv', index=False)
+        df_pd.to_csv('results_bct_2.csv', index=False)
 

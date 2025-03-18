@@ -51,10 +51,12 @@ def compare_weighted_clustering_coefficients(connectome:np.array):
 
 def compare_binary_betweenness_centrality(connectome:np.array):
     connectome_tensor = torch.Tensor(connectome).unsqueeze(0)
-    gnm_bc = gnm_metrics.binary_betweenness_centrality(connectome_tensor)
+    gnm_bc = gnm_metrics.betweenness_bin(connectome_tensor).squeeze(0)
     gnm_bc = gnm_bc.cpu().numpy()
-    gnm_bc = gnm_bc.reshape(-1)
-    bct_bc = bct.betweenness_bin(connectome)
+    bct_bc = gnm_metrics.bct_betwenness_bin(connectome)
+    print(gnm_bc)
+    print('-' * 50)
+    print(bct_bc)
     compare_exact(gnm_bc, bct_bc, 'Binary Betweeness Centrality')
 
 scaler = MinMaxScaler((0, 1))
@@ -67,6 +69,7 @@ binary_connectome = np.where(weighted_connectome > 0.4, 1, 0)
 binary_connectome = np.maximum(binary_connectome, binary_connectome.T) # symmetry
 np.fill_diagonal(binary_connectome, 0) # no self-connections
 
-compare_binary_clustering_coefficients(binary_connectome)
-compare_weighted_clustering_coefficients(weighted_connectome)
-compare_node_strength(weighted_connectome)
+# compare_binary_clustering_coefficients(binary_connectome)
+# compare_weighted_clustering_coefficients(weighted_connectome)
+# compare_node_strength(weighted_connectome)
+compare_binary_betweenness_centrality(binary_connectome)

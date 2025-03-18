@@ -305,3 +305,68 @@ def binary_betweenness_centrality(
         np.array(list(nx.betweenness_centrality(g).values())) for g in graphs
     ]
     return torch.tensor(np.array(betweenness_values), dtype=matrices.dtype)
+
+
+
+@jaxtyped(typechecker=typechecked)
+def betweenness_bin(connectome: Float[torch.Tensor, "*batch num_nodes num_nodes"], device=None):
+    if device is None:
+        device = connectome.device
+
+    batch_size = connectome.shape[0]
+    num_nodes = connectome.shape[-1]  
+
+    # Identity matrix over batches
+    single_identity = torch.eye(num_nodes, device=device)
+    batch_identity = single_identity.repeat(batch_size, 1, 1)  # I
+
+    d = 1  # path length
+    num_shortest_paths = connectome.clone().to(device)  # NPd
+    num_shortest_paths_length_d = connectome.clone().to(device)  # NSPd
+    num_shortest_paths_lengths_any = connectome.clone().to(device)  # NSP
+    length_shortest_path = connectome.clone().to(device)  # L
+
+    # Self-connections have a shortest path of 1
+    num_shortest_paths_lengths_any[batch_identity.bool()] = 1
+    length_shortest_path[batch_identity.bool()] = 1
+
+    max_distance = num_nodes  # Maximum possible path length (in worst case, it's num_nodes - 1)
+
+    for d in range(2, max_distance + 1):
+        num_shortest_paths = torch.bmm(num_shortest_paths, connectome)
+        
+        num_shortest_paths_length_d = torch.where(
+            length_shortest_path == 0, num_shortest_paths, torch.zeros_like(num_shortest_paths)
+        )
+
+        # Update shortest path counts and lengths
+        num_shortest_paths_lengths_any += num_shortest_paths_length_d
+        length_shortest_path += d * (num_shortest_paths_length_d != 0)
+
+        # Break if no new shortest paths are found
+        if torch.all(num_shortest_paths_length_d == 0):
+            break
+
+    # Assign infinite length to disconnected edges
+    length_shortest_path = torch.where(length_shortest_path == 0, torch.inf, length_shortest_path)
+    length_shortest_path[batch_identity.bool()] = 0
+
+    # Assign 1 to disconnected paths
+    num_shortest_paths_lengths_any = torch.where(num_shortest_paths_lengths_any == 0, 1, num_shortest_paths_lengths_any)
+
+    # Initialize dependency matrix
+    dependency = torch.zeros((batch_size, num_nodes, num_nodes), device=device)
+
+    # Compute graph diameter
+    diameter = d - 1
+
+    # Calculate dependency DP
+    for d in range(diameter, 1, -1):
+        DPd1 = torch.bmm(
+            ((length_shortest_path == d).float() * (1 + dependency) / (num_shortest_paths_lengths_any + 1e-10)),
+            connectome.transpose(-1, -2)
+        ) * ((length_shortest_path == (d - 1)).float() * num_shortest_paths_lengths_any)
+
+        dependency += DPd1
+
+    return dependency.sum(dim=1)  # Sum over node dependencies
