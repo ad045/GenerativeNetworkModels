@@ -309,7 +309,7 @@ def binary_betweenness_centrality(
 
 
 @jaxtyped(typechecker=typechecked)
-def betweenness_bin(connectome: Float[torch.Tensor, "*batch num_nodes num_nodes"], device=None):
+def binary_betweenness_centrality(connectome: Float[torch.Tensor, "*batch num_nodes num_nodes"], device=None):
     if device is None:
         device = connectome.device
 
@@ -320,7 +320,6 @@ def betweenness_bin(connectome: Float[torch.Tensor, "*batch num_nodes num_nodes"
     single_identity = torch.eye(num_nodes, device=device)
     batch_identity = single_identity.repeat(batch_size, 1, 1)  # I
 
-    d = 1  # path length
     num_shortest_paths = connectome.clone().to(device)  # NPd
     num_shortest_paths_length_d = connectome.clone().to(device)  # NSPd
     num_shortest_paths_lengths_any = connectome.clone().to(device)  # NSP
@@ -360,7 +359,6 @@ def betweenness_bin(connectome: Float[torch.Tensor, "*batch num_nodes num_nodes"
     # Compute graph diameter
     diameter = d - 1
 
-    # Calculate dependency DP
     for d in range(diameter, 1, -1):
         DPd1 = torch.bmm(
             ((length_shortest_path == d).float() * (1 + dependency) / (num_shortest_paths_lengths_any + 1e-10)),

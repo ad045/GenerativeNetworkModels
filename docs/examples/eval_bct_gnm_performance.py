@@ -18,7 +18,7 @@ def generate_adj_matrix(N, density):
     """Generate an NxN binary adjacency matrix with a given density of connections."""
 
     adj_matrix = np.zeros((N, N), dtype=int)
-    num_ones = int(N * N * density)
+    num_ones = density
     
     # Select random indices for ones
     indices = np.random.choice(N * N, num_ones, replace=False)
@@ -38,9 +38,9 @@ def simulate_bct(num_simulations,
                  eta, 
                  gamma, 
                  connectome,
+                 num_connections,
                  distance_matrix):
     
-    num_connections = int(connectome.sum().item() / 2)
     start_time = time.perf_counter()
     for _ in tqdm(range(num_simulations), desc='BCT Simulations', disable=True):
         
@@ -76,11 +76,11 @@ def simulate_gnm(num_simulations, eta, gamma, num_connections, distance_matrix, 
     if batches[-1] == 0:
         batches = batches[:-1]
 
-    for batch_size in batches:
+    for i in batches:
         model = GenerativeNetworkModel(
             binary_parameters=binary_parameters,
-            num_simulations=batch_size,
-            distance_matrix=distance_matrix,
+            num_simulations=i,
+            distance_matrix=distance_matrix.to(torch.device('cpu')),
             verbose=False
         )
 
@@ -92,17 +92,20 @@ def simulate_gnm(num_simulations, eta, gamma, num_connections, distance_matrix, 
     return end_time - start_time
 
 
-DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu') # 
 print(f'Using device: {DEVICE} for GNM simulations')
 
 time_gnm = []
 time_bct = []
-df = {'connectome_size': [], 'num_connections':[], 'time_gnm': []} #  'time_bct': []
-connectome_size_range = range(100, 600, 10)
-num_connections_range = range(50, 1000, 50)
+df = {'connectome_size': [], 'num_connections':[], 'time_bct': []} #  
+connectome_size_range = range(100, 600, 50)
+num_connections_range = range(100, 1000, 50)
 
-for num_connections in num_connections_range:
-    for connectome_size in tqdm(connectome_size_range, desc='Connectome Size', leave=False):
+# connectome_size_range = list(reversed(range(100, 600, 10)))
+# num_connections_range = list(reversed(range(50, 1000, 50)))
+
+for num_connections in tqdm(num_connections_range, leave=False):
+    for connectome_size in connectome_size_range:
         connectome_size = int(connectome_size)
 
         tqdm.write(f'connectome_size: {connectome_size}, N connections: {num_connections}')
@@ -113,23 +116,24 @@ for num_connections in num_connections_range:
         dist_matrix_torch = torch.Tensor(dist_matrix_np).to(DEVICE)
 
         # seed network
-        adj_matrix = np.zeros((connectome_size, connectome_size), dtype=int)
+        adj_matrix = generate_adj_matrix(connectome_size, num_connections)
 
         # set params 
         eta = -0.1
         gamma = 0.1
-        num_simulations = 100
+        num_simulations = 1
         batch_size = 16
         
-        gnm_time = simulate_gnm(num_simulations, eta, gamma, num_connections, dist_matrix_torch, batch_size)
-        #bct_time = simulate_bct(num_simulations, [eta], [gamma], adj_matrix, dist_matrix_np)
+        #gnm_time = simulate_gnm(num_simulations, eta, gamma, num_connections, dist_matrix_torch, batch_size)
+        bct_time = simulate_bct(num_simulations, [eta], [gamma], adj_matrix, num_connections, dist_matrix_np)
 
         df['connectome_size'].append(connectome_size)
         df['num_connections'].append(num_connections)
-        df['time_gnm'].append(gnm_time)
-        #df['time_bct'].append('bct_time')
+        
+        #df['time_gnm'].append(gnm_time)
+        df['time_bct'].append(bct_time)
 
         # save as you go
         df_pd = pd.DataFrame(df)
-        df_pd.to_csv('results_gnm.csv', index=False)
+        df_pd.to_csv('results_bct_num.csv', index=False)
 
