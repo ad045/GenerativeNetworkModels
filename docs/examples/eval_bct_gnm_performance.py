@@ -14,24 +14,22 @@ import gc
 
 import numpy as np
 
-def generate_adj_matrix(N, density, directed=False, self_loops=False):
+def generate_adj_matrix(N, density):
     """Generate an NxN binary adjacency matrix with a given density of connections."""
-    # Create an empty matrix
+
     adj_matrix = np.zeros((N, N), dtype=int)
     num_ones = int(N * N * density)
     
     # Select random indices for ones
     indices = np.random.choice(N * N, num_ones, replace=False)
-    adj_matrix.flat[indices] = 1  # Assign ones at selected indices
-    
-    # Ensure no self-loops
-    if not self_loops:
-        np.fill_diagonal(adj_matrix, 0)
+    adj_matrix.flat[indices] = 1 
 
-    # Ensure symmetry for undirected graphs
-    if not directed:
-        adj_matrix = np.triu(adj_matrix)  
-        adj_matrix += adj_matrix.T   
+    # remove self loops
+    np.fill_diagonal(adj_matrix, 0)
+
+    # symmetrical
+    adj_matrix = np.triu(adj_matrix)  
+    adj_matrix += adj_matrix.T   
 
     return adj_matrix
 
@@ -59,7 +57,7 @@ def simulate_bct(num_simulations,
     return end_time - start_time
 
 
-def simulate_gnm(num_simulations, eta, gamma, connectome, batch_size):
+def simulate_gnm(num_simulations, eta, gamma, connectome, distance_matrix, batch_size):
     start_time = time.perf_counter()
     num_connections = int( (connectome.sum().item() / 2  ) / 10)
 
@@ -83,7 +81,7 @@ def simulate_gnm(num_simulations, eta, gamma, connectome, batch_size):
         model = GenerativeNetworkModel(
             binary_parameters=binary_parameters,
             num_simulations=batch_size,
-            distance_matrix=distance_matrix_torch,
+            distance_matrix=distance_matrix,
             verbose=False
         )
 
@@ -100,27 +98,23 @@ print(f'Using device: {DEVICE} for GNM simulations')
 
 time_gnm = []
 time_bct = []
-df = {'connectome_size': [], 'density':[], 'time_bct': []} # 'time_gnm': []
+df = {'connectome_size': [], 'num_connections':[], 'time_bct': [], 'time_gnm': []}
 connectome_size_range = range(250, 300, 10)
-density = np.linspace(0.1, 0.9, 9)
+num_connections_range = range(50, 1000, 10)
 
-for d in density:
+for num_connections in num_connections_range:
     for connectome_size in tqdm(connectome_size_range, desc='Connectome Size', leave=False):
         connectome_size = int(connectome_size)
 
-        tqdm.write(f'connectome_size: {connectome_size}, density: {d}')
+        tqdm.write(f'connectome_size: {connectome_size}, N connections: {num_connections}')
 
         # setup simulation connectome
         coords = np.random.rand(connectome_size, 3)  # Change to (N, 3) for 3D
         dist_matrix_np = squareform(pdist(coords, metric='euclidean'))
-        binary_consensus_network_np = np.ones((connectome_size, connectome_size))
+        dist_matrix_torch = torch.Tensor(dist_matrix_np).to(DEVICE)
 
-        adj_matrix = generate_adj_matrix(connectome_size, d, directed=False, self_loops=False)
-
-        # Remove self-connections
-        np.fill_diagonal(binary_consensus_network_np, 0)
-        distance_matrix_torch = torch.Tensor(dist_matrix_np).to(DEVICE)
-        binary_consensus_network_torch = torch.Tensor(binary_consensus_network_np).unsqueeze(0).to(DEVICE)
+        # seed network
+        adj_matrix = np.zeros((connectome_size, connectome_size), dtype=int)
 
         # set params 
         eta = -0.1
@@ -128,15 +122,15 @@ for d in density:
         num_simulations = 100
         batch_size = 16
         
-        #gnm_time = simulate_gnm(num_simulations, eta, gamma, binary_consensus_network_torch, batch_size)
-        bct_time = simulate_bct(num_simulations, [eta], [gamma], binary_consensus_network_np, dist_matrix_np)
+        gnm_time = simulate_gnm(num_simulations, eta, gamma, adj_matrix, dist_matrix_torch, batch_size)
+        bct_time = simulate_bct(num_simulations, [eta], [gamma], adj_matrix, dist_matrix_np)
 
         df['connectome_size'].append(connectome_size)
-        df['density'].append(d)
-        #df['time_gnm'].append(bct_time)
+        df['num_connections'].append(num_connections)
+        df['time_gnm'].append(bct_time)
         df['time_bct'].append(bct_time)
 
         # save as you go
         df_pd = pd.DataFrame(df)
-        df_pd.to_csv('results_bct_2.csv', index=False)
+        df_pd.to_csv('results_combined.csv', index=False)
 
