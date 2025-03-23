@@ -10,6 +10,7 @@ from typeguard import typechecked
 import torch
 import networkx as nx
 import numpy as np
+from warnings import warn
 
 from .checks import binary_checks, weighted_checks
 
@@ -259,7 +260,7 @@ def communicability(
     return communicability_matrix
 
 
-def binary_betweenness_centrality(
+def binary_betweenness_centrality_nx(
     matrices: Float[torch.Tensor, "num_matrices num_nodes num_nodes"]
 ) -> Float[torch.Tensor, "num_matrices num_nodes"]:
     r"""Compute betweenness centrality for each node in binary networks.
@@ -300,6 +301,15 @@ def binary_betweenness_centrality(
     See Also:
         - [`evaluation.BetweennessKS`][gnm.evaluation.BetweennessKS]: Binary evaluation criterion which compares the distribution of betweenness centralities between two binary networks.
     """
+
+    warn(
+        """
+        This implementation of betweeness centrality is depriciated.
+        "Use binary_betweenness_centrality instead: 
+        https://generative-network-models-toolbox.readthedocs.io/en/latest/api-reference/utils/#:~:text=gnm.utils.binary_clustering_coefficients(adjacency_matrix)
+        """ 
+        )
+
     graphs = [nx.from_numpy_array(matrix.cpu().numpy()) for matrix in matrices]
     betweenness_values = [
         np.array(list(nx.betweenness_centrality(g).values())) for g in graphs
@@ -309,7 +319,49 @@ def binary_betweenness_centrality(
 
 
 @jaxtyped(typechecker=typechecked)
-def binary_betweenness_centrality(connectome: Float[torch.Tensor, "*batch num_nodes num_nodes"], device=None):
+def binary_betweenness_centrality(
+    connectome: Float[torch.Tensor, "*batch num_nodes num_nodes"], 
+    device=None):
+
+    r"""Compute betweenness centrality for each node in binary networks.
+
+    Betweenness centrality quantifies the number of times a node acts as a bridge along
+    the shortest path between two other nodes. It identifies nodes that control information
+    flow in a network.
+
+    This function uses NetworkX for calculation and is intended for binary networks.
+
+    Args:
+        matrices:
+            Batch of binary adjacency matrices with shape [num_matrices, num_nodes, num_nodes]
+
+    Returns:
+        Array of betweenness centralities for each node in each network with shape [num_matrices, num_nodes]
+
+    Examples:
+        >>> import torch
+        >>> from gnm.utils import binary_betweenness_centrality
+        >>> # Create a simple binary network
+        >>> adj_matrix = torch.zeros(1, 4, 4)
+        >>> adj_matrix[0, 0, 1] = 1
+        >>> adj_matrix[0, 1, 0] = 1
+        >>> adj_matrix[0, 1, 2] = 1
+        >>> adj_matrix[0, 2, 1] = 1
+        >>> adj_matrix[0, 2, 3] = 1
+        >>> adj_matrix[0, 3, 2] = 1
+        >>> betweenness = binary_betweenness_centrality(adj_matrix)
+        >>> betweenness.shape
+        torch.Size([1, 4])
+
+    Notes:
+        This function converts PyTorch tensors to NumPy arrays for NetworkX processing,
+        then converts the results back to PyTorch tensors. For large networks or batches,
+        this may be computationally expensive.
+
+    See Also:
+        - [`evaluation.BetweennessKS`][gnm.evaluation.BetweennessKS]: Binary evaluation criterion which compares the distribution of betweenness centralities between two binary networks.
+    """
+    
     if device is None:
         device = connectome.device
 
@@ -320,27 +372,24 @@ def binary_betweenness_centrality(connectome: Float[torch.Tensor, "*batch num_no
     single_identity = torch.eye(num_nodes, device=device)
     batch_identity = single_identity.repeat(batch_size, 1, 1)  # I
 
-    num_shortest_paths = connectome.clone().to(device)  # NPd
-    num_shortest_paths_length_d = connectome.clone().to(device)  # NSPd
-    num_shortest_paths_lengths_any = connectome.clone().to(device)  # NSP
-    length_shortest_path = connectome.clone().to(device)  # L
+    num_shortest_paths = connectome.clone() 
+    num_shortest_paths_length_d = torch.zeros_like(connectome)
+    num_shortest_paths_lengths_any = torch.zeros_like(connectome)
+    length_shortest_path = connectome.clone() 
 
     # Self-connections have a shortest path of 1
     num_shortest_paths_lengths_any[batch_identity.bool()] = 1
     length_shortest_path[batch_identity.bool()] = 1
 
-    max_distance = num_nodes  # Maximum possible path length (in worst case, it's num_nodes - 1)
-
-    for d in range(2, max_distance + 1):
+    for path_length in range(2, num_nodes + 1):
         num_shortest_paths = torch.bmm(num_shortest_paths, connectome)
-        
-        num_shortest_paths_length_d = torch.where(
-            length_shortest_path == 0, num_shortest_paths, torch.zeros_like(num_shortest_paths)
-        )
+
+        num_shortest_paths_length_d.copy_(num_shortest_paths)
+        num_shortest_paths_length_d[length_shortest_path != 0] = 0
 
         # Update shortest path counts and lengths
         num_shortest_paths_lengths_any += num_shortest_paths_length_d
-        length_shortest_path += d * (num_shortest_paths_length_d != 0)
+        length_shortest_path += path_length * (num_shortest_paths_length_d != 0)
 
         # Break if no new shortest paths are found
         if torch.all(num_shortest_paths_length_d == 0):
@@ -356,15 +405,12 @@ def binary_betweenness_centrality(connectome: Float[torch.Tensor, "*batch num_no
     # Initialize dependency matrix
     dependency = torch.zeros((batch_size, num_nodes, num_nodes), device=device)
 
-    # Compute graph diameter
-    diameter = d - 1
-
-    for d in range(diameter, 1, -1):
-        DPd1 = torch.bmm(
-            ((length_shortest_path == d).float() * (1 + dependency) / (num_shortest_paths_lengths_any + 1e-10)),
+    for path_length in range(path_length-1, 1, -1):
+        temporary_path_dependency = torch.bmm(
+            ((length_shortest_path == path_length).float() * (1 + dependency) / (num_shortest_paths_lengths_any + 1e-10)),
             connectome.transpose(-1, -2)
-        ) * ((length_shortest_path == (d - 1)).float() * num_shortest_paths_lengths_any)
+        ) * ((length_shortest_path == (path_length - 1)).float() * num_shortest_paths_lengths_any)
 
-        dependency += DPd1
+        dependency += temporary_path_dependency
 
     return dependency.sum(dim=1)  # Sum over node dependencies
