@@ -16,5 +16,7 @@ build/
 ./eval_gen_rules.py
 ./GNM_original.py
 ./.conda
-./wills_testing_script.py
+
+# Should not track experiment folder - may contain files due to testing
+generative_model_experiments/
 
