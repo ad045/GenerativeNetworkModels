@@ -365,6 +365,8 @@ def binary_betweenness_centrality(
     if device is None:
         device = connectome.device
 
+    binary_checks(connectome)
+
     batch_size = connectome.shape[0]
     num_nodes = connectome.shape[-1]  
 
