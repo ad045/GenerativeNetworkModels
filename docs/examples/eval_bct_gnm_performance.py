@@ -43,15 +43,18 @@ def simulate_bct(num_simulations,
     
     start_time = time.perf_counter()
     for _ in tqdm(range(num_simulations), desc='BCT Simulations', disable=True):
-        
-        generative_model = bct.generative_model(connectome, 
-                                                distance_matrix, 
-                                                num_connections, 
-                                                eta, 
-                                                gamma, 
-                                                'matching',
-                                                'powerlaw',
-                                                num_connections)
+        try:
+            generative_model = bct.generative_model(connectome, 
+                                                    distance_matrix, 
+                                                    num_connections, 
+                                                    eta, 
+                                                    gamma, 
+                                                    'matching',
+                                                    'powerlaw',
+                                                    num_connections)
+        except:
+            print('Error in BCT simulation')
+            return 0
         
     end_time = time.perf_counter()
     return end_time - start_time
@@ -76,6 +79,7 @@ def simulate_gnm(num_simulations, eta, gamma, num_connections, distance_matrix, 
     if batches[-1] == 0:
         batches = batches[:-1]
 
+    #print(batches)
     for i in batches:
         model = GenerativeNetworkModel(
             binary_parameters=binary_parameters,
@@ -97,12 +101,10 @@ print(f'Using device: {DEVICE} for GNM simulations')
 
 time_gnm = []
 time_bct = []
-df = {'connectome_size': [], 'num_connections':[], 'time_bct': []} #  
-connectome_size_range = range(100, 600, 50)
-num_connections_range = range(100, 1000, 50)
+df = {'connectome_size': [], 'num_connections':[], 'time_gnm': []} #  
 
-# connectome_size_range = list(reversed(range(100, 600, 10)))
-# num_connections_range = list(reversed(range(50, 1000, 50)))
+connectome_size_range = list(reversed(range(100, 800, 50)))
+num_connections_range = list(reversed(range(50, 1000, 100))) #
 
 for num_connections in tqdm(num_connections_range, leave=False):
     for connectome_size in connectome_size_range:
@@ -121,19 +123,23 @@ for num_connections in tqdm(num_connections_range, leave=False):
         # set params 
         eta = -0.1
         gamma = 0.1
-        num_simulations = 1
-        batch_size = 16
+        num_simulations = 10
+        batch_size = 8
+
+        gc.collect()
+        torch.cuda.empty_cache()
         
-        #gnm_time = simulate_gnm(num_simulations, eta, gamma, num_connections, dist_matrix_torch, batch_size)
-        bct_time = simulate_bct(num_simulations, [eta], [gamma], adj_matrix, num_connections, dist_matrix_np)
+        gnm_time = simulate_gnm(num_simulations, eta, gamma, num_connections, dist_matrix_torch, batch_size)
+        #bct_time = simulate_bct(num_simulations, [eta], [gamma], adj_matrix, num_connections, dist_matrix_np)
 
         df['connectome_size'].append(connectome_size)
         df['num_connections'].append(num_connections)
         
-        #df['time_gnm'].append(gnm_time)
-        df['time_bct'].append(bct_time)
+        df['time_gnm'].append(gnm_time)
+        
+        #df['time_bct'].append(bct_time)
 
         # save as you go
         df_pd = pd.DataFrame(df)
-        df_pd.to_csv('results_bct_num.csv', index=False)
+        df_pd.to_csv('results_gnm_num_2.csv', index=False)
 

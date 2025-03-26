@@ -37,6 +37,7 @@ class ExperimentEvaluation():
         weighted_variables_to_save = [f.name for f in fields(WeightedSweepParameters)]
         variables_to_save = binary_variables_to_save + weighted_variables_to_save
         self.variables_to_save = [i for i in variables_to_save if i not in variables_to_ignore]
+        print(self.variables_to_save)
 
         self._refresh_index_file()
 
@@ -249,7 +250,8 @@ class ExperimentEvaluation():
         # make sure variable provided can be searched
         if by not in searchable_variables:
             print(f'Variable {by} not in searchable variables. Must be one of {searchable_variables}')
-            self._is_similar_wording()
+            self._is_similar_wording(by)
+            return
 
         # sort by that variable and return list if no value to search for is specified
         if value is None or len(all_experiments) == 1:
@@ -268,7 +270,7 @@ class ExperimentEvaluation():
         experiment_data_to_return = self.open_experiments_by_name(to_return)
 
         if verbose:
-            print(f'Found {len(experiment_data_to_return)} item(s) matching: {by} = {value}')
+            print(f'\nFound {len(experiment_data_to_return)} item(s) matching: {by} = {value}')
         
         return experiment_data_to_return
         
@@ -289,7 +291,7 @@ class ExperimentEvaluation():
             else:
                 warn(f'File {name} could not be found in {file_path}. Do you have the right root folder specified?')
         
-        if len(experiments_opened) == 1:
-            experiments_opened = experiments_opened[0]
+        # if len(experiments_opened) == 1:
+        #     experiments_opened = experiments_opened[0]
         
         return experiments_opened
