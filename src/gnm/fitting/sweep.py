@@ -298,6 +298,8 @@ def perform_sweep(
     """
     run_results = []
 
+    print(f'Using device: {device} for GNM simulations')
+
     config_count = len(list(sweep_config))
 
     for run_config in tqdm(sweep_config, desc='Configuration Iterations', total=config_count, disable=not verbose):

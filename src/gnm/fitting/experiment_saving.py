@@ -17,6 +17,9 @@ from .experiment_dataclasses import (
 import os
 import torch
 
+# TODO: Add type hints to all functions
+# TODO: Add docstrings to all functions
+# TODO: change name to ExperimentManager
 class ExperimentEvaluation():
     def __init__(self, path=None, index_file_path=None, variables_to_ignore=[]):
         if path is None:
@@ -37,7 +40,6 @@ class ExperimentEvaluation():
         weighted_variables_to_save = [f.name for f in fields(WeightedSweepParameters)]
         variables_to_save = binary_variables_to_save + weighted_variables_to_save
         self.variables_to_save = [i for i in variables_to_save if i not in variables_to_ignore]
-        print(self.variables_to_save)
 
         self._refresh_index_file()
 
