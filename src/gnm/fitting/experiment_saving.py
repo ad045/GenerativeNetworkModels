@@ -1,9 +1,3 @@
-# import torch
-# from typing import List, Iterator, Optional, Any, Dict, Union
-# from itertools import product
-# from jaxtyping import Float, Int, jaxtyped
-# from typeguard import typechecked
-# from dataclasses import dataclass, field
 import json
 import pickle
 from datetime import datetime
@@ -17,10 +11,9 @@ from .experiment_dataclasses import (
 import os
 import torch
 
-# TODO: Add type hints to all functions
-# TODO: Add docstrings to all functions
-# TODO: change name to ExperimentManager
+
 class ExperimentEvaluation():
+
     def __init__(self, path=None, index_file_path=None, variables_to_ignore=[]):
         if path is None:
             path = 'generative_model_experiments'
