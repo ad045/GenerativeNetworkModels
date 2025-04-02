@@ -11,8 +11,58 @@ from .experiment_dataclasses import (
 import os
 import torch
 
+"""
+This module provides functionality for managing and saving experiment data for generative network models. 
+It includes the `ExperimentEvaluation` class, which handles saving experiments, managing an index file, 
+querying experiments, and other related operations.
+
+Classes:
+    - ExperimentEvaluation: Handles saving, querying, and managing experiment data and configurations.
+
+Usage:
+    The `ExperimentEvaluation` class can be used to:
+    - Save experiments and their configurations.
+    - Query experiments based on specific variables and values.
+    - Manage an index file that tracks experiment configurations.
+    - Delete or clean up experiment data.
+
+Example:
+    evaluator = ExperimentEvaluation(path="experiment_data", index_file_path="index.json")
+    evaluator.save_experiments([experiment1, experiment2])
+    results = evaluator.query_experiments(value=0.5, by="alpha")
+"""
 
 class ExperimentEvaluation():
+    """
+    The `ExperimentEvaluation` class provides functionality for managing and saving experiment data for generative network models. 
+    It handles creating directories, managing index files, saving experiment configurations, and querying experiments.
+    
+    Attributes:
+        - path (str): Directory where experiment data is stored. Defaults to 'generative_model_experiments'.
+        - index_path (str): Path to the index file that tracks experiment configurations.
+        - variables_to_save (list): List of variables to save, excluding those specified in `variables_to_ignore`.
+    
+    Methods:
+        - __init__(path=None, index_file_path=None, variables_to_ignore=[]): Initializes the class, sets up paths, and prepares the index file.
+        - _refresh_index_file(): Reloads the index file from disk or creates it if it doesn't exist.
+        - _make_index_file(): Creates a new index file with initial data.
+        - save_experiments(experiments): Saves a list of `Experiment` objects to disk.
+        - _save_experiment(experiment_dataclass, experiment_name='gnm_experiment'): Saves a single experiment and updates the index file.
+        - view_experiments(): Placeholder for viewing experiments as a table or saving them as CSV.
+        - _sort_experiments(experiments, variable_to_sort_by, get_names_only=False): Sorts experiments by a specified variable.
+        - clean_index_file(): Placeholder for cleaning up the index file.
+        - _ask_loop(question): Prompts the user for confirmation with a yes/no question.
+        - delete_experiment(experiment_name, ask_first=True): Deletes an experiment and removes it from the index file.
+        - purge_index_file(): Placeholder for purging the index file.
+        - _is_similar_wording(variable_word, verbose=True): Suggests the most similar variable name if a given name is not found.
+        - query_experiments(value=None, by=None, limit=float('inf'), verbose=True): Queries experiments based on a variable and value.
+        - open_experiments_by_name(experiment_names): Opens experiments by their names and returns their data.
+    
+    Usage:
+        evaluator = ExperimentEvaluation(path="experiment_data", index_file_path="index.json")
+        evaluator.save_experiments([experiment1, experiment2])
+        results = evaluator.query_experiments(value=0.5, by="alpha")
+    """
 
     def __init__(self, path=None, index_file_path=None, variables_to_ignore=[]):
         if path is None:
@@ -62,6 +112,10 @@ class ExperimentEvaluation():
 
         self._refresh_index_file()
 
+    """
+    Saves a list of experiments to disk. Each experiment is an instance of the Experiment dataclass.
+    The experiments are saved in a specified directory, and the index file is updated accordingly.
+    """
     def save_experiments(self, experiments:list[Experiment]):
         for experiment in experiments:
             self._save_experiment(experiment)
@@ -193,6 +247,9 @@ class ExperimentEvaluation():
 
         return answer
 
+    """
+    Deletes an experiment from the index file and removes the corresponding file from disk.
+    """
     def delete_experiment(self, experiment_name, ask_first=True):
         if not experiment_name in self.index_file['experiment_configs']:
             warn(f'Experiment {experiment_name} not found in index file, exiting.')
@@ -229,8 +286,11 @@ class ExperimentEvaluation():
         
         return most_likely_word
 
-    # find experiment given a value of a variable like alpha, 
-    # returns the experiment(s) of that value 
+
+    """
+    Queries the index file for experiments matching a specified variable and value.
+    Returns a list of experiment data files that match the criteria.
+    """
     def query_experiments(self, value=None, by=None, limit=float('inf'), verbose=True):
 
         # get all searchable variables
@@ -269,7 +329,10 @@ class ExperimentEvaluation():
         
         return experiment_data_to_return
         
-
+    """
+    Opens experiments by their names and returns their data.
+    If the name is 'test_config', it is skipped.
+    """
     def open_experiments_by_name(self, experiment_names):
         if isinstance(experiment_names, str):
             experiment_names = [experiment_names]
