@@ -64,7 +64,9 @@ class ExperimentEvaluation():
         results = evaluator.query_experiments(value=0.5, by="alpha")
     """
 
-    def __init__(self, path=None, index_file_path=None, variables_to_ignore=[]):
+    def __init__(self, path=None, index_file_path=None, variables_to_ignore=[], save=True):#
+        self.save = save
+
         if path is None:
             path = 'generative_model_experiments'
         
@@ -72,7 +74,7 @@ class ExperimentEvaluation():
             index_file_path = 'gnm_index.json'
 
         # create path to experiment data and index file if it doesn't exist already
-        if not os.path.exists(path):
+        if not os.path.exists(path) and save:
             os.mkdir(path)
 
         self.path = path
@@ -84,7 +86,8 @@ class ExperimentEvaluation():
         variables_to_save = binary_variables_to_save + weighted_variables_to_save
         self.variables_to_save = [i for i in variables_to_save if i not in variables_to_ignore]
 
-        self._refresh_index_file()
+        if self.save:
+            self._refresh_index_file()
 
     def _refresh_index_file(self):
         if not os.path.exists(self.index_path):
@@ -117,6 +120,8 @@ class ExperimentEvaluation():
     The experiments are saved in a specified directory, and the index file is updated accordingly.
     """
     def save_experiments(self, experiments:list[Experiment]):
+        if not isinstance(experiments, list):
+            experiments = [experiments]
         for experiment in experiments:
             self._save_experiment(experiment)
 
@@ -146,12 +151,13 @@ class ExperimentEvaluation():
         else:
             experiment_name += '_1'
         
-        # write to pickle file
-        experiment_name = experiment_name + '.pkl'
-        experiment_path = os.path.join(self.path, experiment_name)
+        if self.save:
+            # write to pickle file
+            experiment_name = experiment_name + '.pkl'
+            experiment_path = os.path.join(self.path, experiment_name)
 
-        with open(experiment_path, 'wb') as pkl_file:
-            pickle.dump(experiment_dataclass, pkl_file)
+            with open(experiment_path, 'wb') as pkl_file:
+                pickle.dump(experiment_dataclass, pkl_file)
 
         # may ignore weighted parameters if set to None
         all_config = asdict(experiment_dataclass.run_config.binary_parameters)
@@ -172,6 +178,10 @@ class ExperimentEvaluation():
                 formatted_config[key] = repr(value)
             elif isinstance(value, (int, float, str)):
                 formatted_config[key] = value
+
+        # return names and values of parameters if save is False - mainly used for wandb
+        if not self.save:
+            return formatted_config
 
         self.index_file['experiment_configs'][experiment_name] = formatted_config
         
@@ -251,6 +261,10 @@ class ExperimentEvaluation():
     Deletes an experiment from the index file and removes the corresponding file from disk.
     """
     def delete_experiment(self, experiment_name, ask_first=True):
+        if not self.save:
+            warn('Parameter Save is False - no index file present so returning null')
+            return
+
         if not experiment_name in self.index_file['experiment_configs']:
             warn(f'Experiment {experiment_name} not found in index file, exiting.')
 
@@ -292,6 +306,9 @@ class ExperimentEvaluation():
     Returns a list of experiment data files that match the criteria.
     """
     def query_experiments(self, value=None, by=None, limit=float('inf'), verbose=True):
+        if not self.save:
+            warn('Parameter Save is False - no index file present so returning null')
+            return
 
         # get all searchable variables
         all_experiments = self.index_file['experiment_configs']
@@ -334,6 +351,10 @@ class ExperimentEvaluation():
     If the name is 'test_config', it is skipped.
     """
     def open_experiments_by_name(self, experiment_names):
+        if not self.save:
+            warn('Parameter Save is False - no index file present so returning null')
+            return
+            
         if isinstance(experiment_names, str):
             experiment_names = [experiment_names]
 

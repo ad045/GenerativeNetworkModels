@@ -25,7 +25,7 @@ from typeguard import typechecked
 import gc
 from tqdm import tqdm
 
-# import wandb
+import wandb
 
 from .experiment_dataclasses import (
     Experiment,
@@ -38,6 +38,11 @@ from .experiment_dataclasses import (
 from gnm import (
     GenerativeNetworkModel,
 )
+
+from .experiment_saving import (
+    ExperimentEvaluation
+)
+
 from gnm.utils import binary_checks, weighted_checks
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -210,7 +215,8 @@ def perform_sweep(
     save_model: bool = True,
     save_run_history: bool = True,
     device: Optional[Union[torch.device, str]] = None,
-    verbose: Optional[bool] = False
+    verbose: Optional[bool] = False,
+    wandb_logging: Optional[bool] = False
 ) -> List[Experiment]:
     r"""Perform a parameter sweep over multiple model configurations.
 
@@ -299,6 +305,10 @@ def perform_sweep(
     run_results = []
 
     print(f'Using device: {device} for GNM simulations')
+    
+    if wandb_logging:
+        print('Logging experiment to wandb - login may be required.')
+        project_name = input('Enter wandb project name: ')
 
     config_count = len(list(sweep_config))
 
@@ -315,6 +325,13 @@ def perform_sweep(
         )
 
         run_results.append(experiment)
+
+        if wandb_logging:
+            exp = ExperimentEvaluation(save=False)
+            experiment_data_config = exp._save_experiment(experiment)
+            wandb.init(project=project_name, config=experiment_data_config)
+            wandb.log(experiment_data_config)  
+            wandb.finish()
 
         gc.collect()
         torch.cuda.empty_cache()

@@ -43,6 +43,9 @@ from .analysis import (
     optimise_evaluation,
 )
 
+from .experiment_saving import (
+    ExperimentEvaluation
+)
 
 __all__ = [
     "BinarySweepParameters",
@@ -61,4 +64,5 @@ __all__ = [
     "MinAggregator",
     "QuantileAggregator",
     "optimise_evaluation",
+    "ExperimentEvaluation"
 ]
