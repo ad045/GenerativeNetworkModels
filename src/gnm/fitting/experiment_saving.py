@@ -161,7 +161,8 @@ class ExperimentEvaluation():
 
         # may ignore weighted parameters if set to None
         all_config = asdict(experiment_dataclass.run_config.binary_parameters)
-        all_config.update(asdict(experiment_dataclass.run_config.weighted_parameters))
+        if experiment_dataclass.run_config.weighted_parameters is not None:
+            all_config.update(asdict(experiment_dataclass.run_config.weighted_parameters))
     
         # de-tensor floating and int values
         formatted_config = {}
