@@ -462,7 +462,9 @@ def perform_evaluations(
             device = torch.device(device)
 
         real_binary_matrices = real_binary_matrices.to(device)
-        real_weighted_matrices = real_weighted_matrices.to(device)
+
+        if real_weighted_matrices is not None:
+            real_weighted_matrices = real_weighted_matrices.to(device)
 
     if binary_evaluations is not None and real_binary_matrices is not None:
         synthetic_adjacency_matrices = model.adjacency_matrix
