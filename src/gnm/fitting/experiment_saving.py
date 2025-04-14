@@ -2,6 +2,7 @@ import json
 import pickle
 from datetime import datetime
 from warnings import warn
+import uuid
 from dataclasses import fields, asdict
 from .experiment_dataclasses import (
     Experiment,
@@ -147,7 +148,7 @@ class ExperimentEvaluation():
             last_experiment_name = with_name[-1]
             last_experiment_num = last_experiment_name.split('_')[-1]
             last_experiment_num = strip_string_to_int(last_experiment_num)
-            experiment_name += f'_{last_experiment_num + 1}'
+            experiment_name += f'_{uuid.uuid4().hex}'
         else:
             experiment_name += '_1'
         

@@ -72,3 +72,11 @@
     options:
         members: 
             - __init__
+
+
+## Saving Experiments
+
+::: gnm.fitting.experiment_saving.ExperimentEvaluation
+    options:
+        members: 
+            - __init__

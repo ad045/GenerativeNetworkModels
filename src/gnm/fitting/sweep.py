@@ -258,6 +258,9 @@ def perform_sweep(
         verbose:
             If True, displays a progress bar for the sweep. Defaults to False.
 
+        wandb_logging:
+            If True, logs the experiment to Weights & Biases. Defaults to False. May reqire a login.
+
     Returns:
         A list of Experiment objects, one for each parameter combination in the sweep.
 
