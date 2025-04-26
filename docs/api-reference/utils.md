@@ -31,3 +31,9 @@
 ::: gnm.utils.communicability
 
 ::: gnm.utils.binary_betweenness_centrality
+
+:::gnm.utils.binary_small_worldness
+
+:::gnm.utils.weighted_small_worldness
+
+:::gnm.utils.generate_random_networks

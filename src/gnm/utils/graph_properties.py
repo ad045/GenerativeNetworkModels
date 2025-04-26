@@ -329,15 +329,10 @@ def binary_betweenness_centrality_nx(
     Examples:
         >>> import torch
         >>> from gnm.utils import binary_betweenness_centrality
-        >>> # Create a simple binary network
-        >>> adj_matrix = torch.zeros(1, 4, 4)
-        >>> adj_matrix[0, 0, 1] = 1
-        >>> adj_matrix[0, 1, 0] = 1
-        >>> adj_matrix[0, 1, 2] = 1
-        >>> adj_matrix[0, 2, 1] = 1
-        >>> adj_matrix[0, 2, 3] = 1
-        >>> adj_matrix[0, 3, 2] = 1
-        >>> betweenness = binary_betweenness_centrality(adj_matrix)
+        >>> from gnm import defaults
+        >>> device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        >>> binary_connectome = defaults.get_binary_network(device=DEVICE)
+        >>> betweenness = binary_betweenness_centrality(binary_connectome)
         >>> betweenness.shape
         torch.Size([1, 4])
 
@@ -389,15 +384,10 @@ def binary_betweenness_centrality(
     Examples:
         >>> import torch
         >>> from gnm.utils import binary_betweenness_centrality
-        >>> # Create a simple binary network
-        >>> adj_matrix = torch.zeros(1, 4, 4)
-        >>> adj_matrix[0, 0, 1] = 1
-        >>> adj_matrix[0, 1, 0] = 1
-        >>> adj_matrix[0, 1, 2] = 1
-        >>> adj_matrix[0, 2, 1] = 1
-        >>> adj_matrix[0, 2, 3] = 1
-        >>> adj_matrix[0, 3, 2] = 1
-        >>> betweenness = binary_betweenness_centrality(adj_matrix)
+        >>> from gnm import defaults
+        >>> device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        >>> binary_connectome = defaults.get_binary_network(device=DEVICE)
+        >>> betweenness = binary_betweenness_centrality(binary_connectome)
         >>> betweenness.shape
         torch.Size([1, 4])
 
@@ -484,15 +474,10 @@ def binary_charactieristic_path_length(
     Examples:
         >>> import torch
         >>> from gnm.utils import binary_charactieristic_path_length
-        >>> # Create a simple binary network
-        >>> adj_matrix = torch.zeros(1, 4, 4)
-        >>> adj_matrix[0, 0, 1] = 1
-        >>> adj_matrix[0, 1, 0] = 1
-        >>> adj_matrix[0, 1, 2] = 1
-        >>> adj_matrix[0, 2, 1] = 1
-        >>> adj_matrix[0, 2, 3] = 1
-        >>> adj_matrix[0, 3, 2] = 1
-        >>> path_length = binary_charactieristic_path_length(adj_matrix)
+        >>> from gnm import defaults
+        >>> device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        >>> binary_connectome = defaults.get_binary_network(device=DEVICE)
+        >>> path_length = binary_charactieristic_path_length(binary_connectome)
         >>> path_length.shape
         torch.Size([1])
     """
@@ -546,7 +531,6 @@ def binary_small_worldness(
     return small_worldness
 
 
-
 @jaxtyped(typechecker=typechecked)
 def weighted_small_worldness(connectome: Float[torch.Tensor, "*batch num_nodes num_nodes"], 
                              average_random_clustering=0.451, 
@@ -569,7 +553,7 @@ def weighted_small_worldness(connectome: Float[torch.Tensor, "*batch num_nodes n
         G.remove_edges_from(nx.selfloop_edges(G))
 
         clustering_mean = weighted_clustering_mean[i]
-        shortest_path_length_mean = nx.average_shortest_path_length(G)
+        shortest_path_length_mean = nx.average_shortest_path_length(G, weight="weight")
 
         # Small-worldness (omega)
         omega = (clustering_mean / average_random_clustering) / (shortest_path_length_mean / average_random_path_length)
