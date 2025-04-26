@@ -7,6 +7,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from gnm.utils.statistics import ks_statistic
 import os
 import matplotlib.pyplot as plt
+import networkx as nx
 
 # TODO: jaxtyping stuff
 
@@ -62,6 +63,17 @@ def compare_binary_betweenness_centrality(connectome:np.array):
     print(bct_bc)
 
     compare_exact(gnm_bc, bct_bc, 'Binary Betweeness Centrality')
+
+
+def compare_characteristic_path_length(connectome:torch.Tensor):
+    network_nx = connectome.squeeze(0).detach().cpu().numpy()
+    network_nx = nx.from_numpy_array(network_nx)
+    nx_charpath = nx.average_shortest_path_length(network_nx)
+    gnm_charpath = gnm_metrics.binary_characteristic_path_length(connectome).item()
+
+    assert np.isclose(gnm_charpath, nx_charpath, atol=1e-2), \
+        f"Characteristic Path Length Failed, GNM={gnm_charpath}, NetworkX={nx_charpath}"
+
 
 scaler = MinMaxScaler((0, 1))
 weighted_connectome = np.load('./tests/mean_connectome.npy')

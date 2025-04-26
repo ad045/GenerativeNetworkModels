@@ -495,9 +495,6 @@ def binary_charactieristic_path_length(
         >>> path_length = binary_charactieristic_path_length(adj_matrix)
         >>> path_length.shape
         torch.Size([1])
-
-    See Also:
-        - [`evaluation.PathLengthKS`][gnm.evaluation.PathLengthKS]: Binary evaluation criterion which compares the distribution of characteristic path lengths between two binary networks.
     """
     binary_checks(connectome)
 
@@ -505,6 +502,50 @@ def binary_charactieristic_path_length(
     num_nodes = connectome.shape[-1]
     
     binary_betweenness_centrality_metric = binary_betweenness_centrality(connectome)
+
+
+@jaxtyped(typechecker=typechecked)
+def binary_small_worldness(
+    connectome: Float[torch.Tensor, "*batch num_nodes num_nodes"], 
+    average_random_clustering=0.451, 
+    average_random_path_length=0.013):
+    r"""Compute the small-worldness for each network in a batch.
+
+    Small-worldness quantifies the degree to which a network exhibits small-world properties,
+    which are characterized by high clustering and short path lengths.
+
+    Args:
+        connectome:
+            Binary adjacency matrix with shape [*batch, num_nodes, num_nodes]
+
+        average_random_clustering (float): Average clustering coefficient of random networks.
+        average_random_path_length (float): Average shortest path length of random networks.
+
+    Returns:
+        Small-worldness for each network with shape [*batch]
+
+    Examples:
+        >>> import torch
+        >>> from gnm.utils import binary_small_worldness
+        >>> from gnm import defaults
+        >>> device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        >>> binary_connectome = defaults.get_binary_network(device=DEVICE)
+        >>> small_worldness = binary_small_worldness(binary_connectome)
+    """
+
+    warn("Using default values for average_random_clustering and average_random_path_length. " \
+    "Consider recalculating using simulate_random_graph_clustering function.")
+    
+    binary_checks(connectome)
+
+    binary_clustering = binary_clustering_coefficients(connectome)
+    binary_characteristic_path_length = binary_characteristic_path_length(connectome)
+
+    # Small-worldness (omega)
+    small_worldness = (binary_clustering / average_random_clustering) / (binary_characteristic_path_length / average_random_path_length)
+    return small_worldness
+
+
 
 @jaxtyped(typechecker=typechecked)
 def weighted_small_worldness(connectome: Float[torch.Tensor, "*batch num_nodes num_nodes"], 
