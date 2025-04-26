@@ -24,6 +24,7 @@ from jaxtyping import Float, jaxtyped
 from typeguard import typechecked
 import gc
 from tqdm import tqdm
+import time
 
 import wandb
 
@@ -216,7 +217,8 @@ def perform_sweep(
     save_run_history: bool = True,
     device: Optional[Union[torch.device, str]] = None,
     verbose: Optional[bool] = False,
-    wandb_logging: Optional[bool] = False
+    wandb_logging: Optional[bool] = False,
+    log_time: Optional[bool] = False,
 ) -> List[Experiment]:
     r"""Perform a parameter sweep over multiple model configurations.
 
@@ -315,7 +317,10 @@ def perform_sweep(
 
     config_count = len(list(sweep_config))
 
+    run_times = []
+
     for run_config in tqdm(sweep_config, desc='Configuration Iterations', total=config_count, disable=not verbose):
+        start_time = time.perf_counter()
         experiment = perform_run(
             run_config=run_config,
             binary_evaluations=binary_evaluations,
@@ -326,6 +331,10 @@ def perform_sweep(
             save_run_history=save_run_history,
             device=device,
         )
+
+        end_time = time.perf_counter()
+        run_time = end_time - start_time
+        run_times.append(run_time)
 
         run_results.append(experiment)
 
@@ -338,6 +347,13 @@ def perform_sweep(
 
         gc.collect()
         torch.cuda.empty_cache()
+
+    # return the total time and times recorded per run 
+    if log_time:
+        avg_time = sum(run_times) / len(run_times)
+        print(f'Average time per run: {avg_time:.2f} seconds')
+        print(f'Total time for sweep: {sum(run_times):.2f} seconds')
+        return run_results, run_times
 
     return run_results
 
