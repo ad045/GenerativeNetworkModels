@@ -20,6 +20,7 @@ from .graph_properties import (
     weighted_clustering_coefficients,
     communicability,
     binary_betweenness_centrality,
+    binary_characteristic_path_length
 )
 from .checks import binary_checks, weighted_checks
 from .control import get_control
@@ -36,4 +37,5 @@ __all__ = [
     "weighted_checks",
     "get_control",
     "np_to_tensor"
+    "binary_characteristic_path_length",
 ]

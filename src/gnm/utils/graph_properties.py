@@ -262,6 +262,52 @@ def communicability(
     return communicability_matrix
 
 
+@jaxtyped(typechecker=typechecked)
+def binary_characteristic_path_length(
+    connectome: Float[torch.Tensor, "*batch num_nodes num_nodes"], 
+    device=None
+) -> Float[torch.Tensor, "*batch"]:
+    """
+    Compute characteristic path length for each binary network in a batch.
+
+    Args:
+        connectome (Tensor): Batch of binary adjacency matrices of shape (batch, num_nodes, num_nodes)
+
+    Returns:
+        Tensor: Characteristic path length for each network in the batch, shape (batch,)
+    """
+    
+    binary_checks(connectome)
+
+    if device is None:
+        device = connectome.device
+
+    batch_size, num_nodes, _ = connectome.shape
+
+    single_identity = torch.eye(num_nodes, device=device)
+    batch_identity = single_identity.unsqueeze(0).repeat(batch_size, 1, 1)
+
+    # Start with direct connections
+    dist = connectome.clone()
+    dist[batch_identity.bool()] = 0
+
+    inf = torch.full_like(dist, float('inf'))
+    dist = torch.where(dist == 0, inf, 1.0)  # 1 where connected, inf otherwise
+    dist[batch_identity.bool()] = 0
+
+    for k in range(num_nodes):
+        dist = torch.minimum(dist, dist[:, :, k:k+1] + dist[:, k:k+1, :])
+
+    # Exclude self-distances
+    mask = ~batch_identity.bool()
+    path_lengths = dist[mask].reshape(batch_size, -1)
+
+    # Mean over all node pairs
+    characteristic_path_length = path_lengths.mean(dim=1)
+
+    return characteristic_path_length
+
+
 def binary_betweenness_centrality_nx(
     matrices: Float[torch.Tensor, "num_matrices num_nodes num_nodes"]
 ) -> Float[torch.Tensor, "num_matrices num_nodes"]:
@@ -420,12 +466,52 @@ def binary_betweenness_centrality(
     return dependency.sum(dim=1)  # Sum over node dependencies
 
 
+def binary_charactieristic_path_length(
+    connectome: Float[torch.Tensor, "*batch num_nodes num_nodes"]
+) -> Float[torch.Tensor, "*batch"]:
+    r"""Compute the characteristic path length for each network.
+
+    The characteristic path length is the average shortest path length between all pairs of nodes in a network.
+    It quantifies the efficiency of information transfer in the network.
+
+    Args:
+        connectome:
+            Binary adjacency matrix with shape [*batch, num_nodes, num_nodes]
+
+    Returns:
+        Characteristic path lengths for each network with shape [*batch]
+
+    Examples:
+        >>> import torch
+        >>> from gnm.utils import binary_charactieristic_path_length
+        >>> # Create a simple binary network
+        >>> adj_matrix = torch.zeros(1, 4, 4)
+        >>> adj_matrix[0, 0, 1] = 1
+        >>> adj_matrix[0, 1, 0] = 1
+        >>> adj_matrix[0, 1, 2] = 1
+        >>> adj_matrix[0, 2, 1] = 1
+        >>> adj_matrix[0, 2, 3] = 1
+        >>> adj_matrix[0, 3, 2] = 1
+        >>> path_length = binary_charactieristic_path_length(adj_matrix)
+        >>> path_length.shape
+        torch.Size([1])
+
+    See Also:
+        - [`evaluation.PathLengthKS`][gnm.evaluation.PathLengthKS]: Binary evaluation criterion which compares the distribution of characteristic path lengths between two binary networks.
+    """
+    binary_checks(connectome)
+
+    batch_size = connectome.shape[0]
+    num_nodes = connectome.shape[-1]
+    
+    binary_betweenness_centrality_metric = binary_betweenness_centrality(connectome)
+
 @jaxtyped(typechecker=typechecked)
 def weighted_small_worldness(connectome: Float[torch.Tensor, "*batch num_nodes num_nodes"], 
                              average_random_clustering=0.451, 
                              average_random_path_length=0.013):
+    
     # Real network measures
-
     connectome_np = connectome.detach().cpu().numpy()
     num_connectomes = connectome_np.shape[0]
 
