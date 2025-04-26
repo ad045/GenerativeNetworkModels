@@ -508,11 +508,15 @@ def simulate_random_graph_clustering(num_nodes:int, n_iter=100, density=None, we
             weights = {(u, v): random_graph[u, v].item() for u, v in edges}
             nx.set_edge_attributes(random_graph_nx, weights, "weight")
 
-        if nx.is_connected(random_graph):
             # Apply NX weighted measures
             betweenness = nx.betweenness_centrality(random_graph_nx, weight='weight', normalized=False)
             clustering_from_random_graph_list.append(np.mean(list(betweenness.values())))
             avg_degree_length_from_random_graph_list.append(nx.average_shortest_path_length(random_graph_nx, weight='weight'))
+        else:
+            # Apply NX binary measures
+            betweenness = nx.betweenness_centrality(random_graph_nx, normalized=False)
+            clustering_from_random_graph_list.append(np.mean(list(betweenness.values())))
+            avg_degree_length_from_random_graph_list.append(nx.average_shortest_path_length(random_graph_nx))
 
     clust_min = np.min(clustering_from_random_graph_list)
     clust_max = np.max(clustering_from_random_graph_list)
