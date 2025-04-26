@@ -11,6 +11,7 @@ import torch
 import networkx as nx
 import numpy as np
 from warnings import warn
+from tqdm import tqdm
 
 from .checks import binary_checks, weighted_checks
 
@@ -416,3 +417,116 @@ def binary_betweenness_centrality(
         dependency += temporary_path_dependency
 
     return dependency.sum(dim=1)  # Sum over node dependencies
+
+
+@jaxtyped(typechecker=typechecked)
+def weighted_small_worldness(connectome: Float[torch.Tensor, "*batch num_nodes num_nodes"], 
+                             average_random_clustering=0.451, 
+                             average_random_path_length=0.013):
+    # Real network measures
+
+    connectome_np = connectome.detach().cpu().numpy()
+    num_connectomes = connectome_np.shape[0]
+
+    weighted_clustering = weighted_clustering_coefficients(connectome)
+    weighted_clustering = weighted_clustering.detach().cpu().numpy()
+    weighted_clustering_mean = np.mean(weighted_clustering, axis=1)
+
+    small_worldness = []
+    for i in range(num_connectomes):
+        single_connectome = connectome_np[i, :, :]
+
+        single_connectome = nx.from_numpy_array(single_connectome)
+        G = nx.Graph(single_connectome)
+        G.remove_edges_from(nx.selfloop_edges(G))
+
+        clustering_mean = weighted_clustering_mean[i]
+        shortest_path_length_mean = nx.average_shortest_path_length(G)
+
+        # Small-worldness (omega)
+        omega = (clustering_mean / average_random_clustering) / (shortest_path_length_mean / average_random_path_length)
+        small_worldness.append(omega)
+
+    small_worldness = np.array(small_worldness)
+
+    return small_worldness
+
+@jaxtyped(typechecker=typechecked)
+def generate_random_networks(
+    num_nodes: int, 
+    density: Float[torch.Tensor, ""], 
+    seed: int, 
+    n: int = 1, 
+    weighted: bool = False
+) -> Float[torch.Tensor, "n num_nodes num_nodes"]:
+    """Create a random graph with the given number of nodes and density.
+
+    Args:
+        num_nodes (int): Number of nodes in the graph.
+        density (float): Density of the graph (between 0 and 1).
+        seed (int): Random seed for reproducibility.
+        n (int): Number of graphs to create.
+        weighted (bool): If True, create a weighted graph.
+
+    Returns:
+        Tensor: Adjacency matrices of shape (n, num_nodes, num_nodes)
+    """
+
+    torch.manual_seed(seed)
+
+    graphs = torch.bernoulli(torch.full((n, num_nodes, num_nodes), density)).int()
+
+    # Make symmetric, no self-loops
+    graphs = torch.triu(graphs, diagonal=1)
+    graphs = graphs + graphs.transpose(1, 2)
+
+    if weighted:
+        weights = torch.rand(n, num_nodes, num_nodes)
+        weights = torch.triu(weights, diagonal=1)
+        weights = weights + weights.transpose(1, 2)
+        graphs = graphs * weights
+
+    return graphs
+
+
+@jaxtyped(typechecker=typechecked)
+def simulate_random_graph_clustering(num_nodes:int, n_iter=100, density=None, weighted=False):
+    assert density is not None and density > 0 and density <= 1, 'Density must be greater than 0'
+
+    clustering_from_random_graph_list, avg_degree_length_from_random_graph_list = [], []
+    networks = generate_random_networks(num_nodes, density, seed=0, n=n_iter, weighted=weighted)
+
+    for i in tqdm(range(n_iter)):
+        # Create a random graph with the same number of nodes and edges
+        random_graph = networks[i, :, :]
+        random_graph_nx = nx.from_numpy_array(random_graph.cpu().numpy())
+
+
+        if weighted:
+            # Extract weights and set them as edge attributes
+            edges = random_graph_nx.edges()
+            weights = {(u, v): random_graph[u, v].item() for u, v in edges}
+            nx.set_edge_attributes(random_graph_nx, weights, "weight")
+
+        if nx.is_connected(random_graph):
+            # Apply NX weighted measures
+            betweenness = nx.betweenness_centrality(random_graph_nx, weight='weight', normalized=False)
+            clustering_from_random_graph_list.append(np.mean(list(betweenness.values())))
+            avg_degree_length_from_random_graph_list.append(nx.average_shortest_path_length(random_graph_nx, weight='weight'))
+
+    clust_min = np.min(clustering_from_random_graph_list)
+    clust_max = np.max(clustering_from_random_graph_list)
+    clustering_from_random_graph_list = np.array(clustering_from_random_graph_list)
+
+    if clust_max != clust_min:
+        clustering_from_random_graph_list = (clustering_from_random_graph_list - clust_min) / (clust_max - clust_min)
+    else:
+        clustering_from_random_graph_list = clustering_from_random_graph_list * 0 
+
+    length_random_mean = np.mean(avg_degree_length_from_random_graph_list)
+    clustering_random_mean = np.mean(clustering_from_random_graph_list)
+
+    print(f'Average random graph clustering coefficient: {clustering_random_mean}')
+    print(f'Average random graph path length: {length_random_mean}')
+
+    return length_random_mean, clustering_random_mean
