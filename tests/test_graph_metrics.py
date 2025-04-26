@@ -8,54 +8,88 @@ from gnm.utils.statistics import ks_statistic
 import os
 import matplotlib.pyplot as plt
 import networkx as nx
+from jaxtyping import Float, Int
+import torch
+import numpy as np
+from typing import Literal
+import networkx as nx
+from jaxtyping import Float, jaxtyped
+from typeguard import typechecked
+from typing import Optional, Union
 
-# TODO: jaxtyping stuff
 
-# comparison of connectomes using different methods
-def compare_exact(connectome_1: np.array, connectome_2: np.array, metric_used: str):
+@jaxtyped(typechecker=typechecked)
+def compare_exact(
+    connectome_1: Float[np.ndarray, "n_nodes n_nodes"],
+    connectome_2: Float[np.ndarray, "n_nodes n_nodes"],
+    metric_used: str
+) -> None:
     assert np.allclose(connectome_1, connectome_2, atol=1e-2), \
         f"From Metric {metric_used}, Exact Adj. Matrices don't match!"
 
-def compare_cosine(connectome_1: np.array, connectome_2: np.array, metric_used: str):
+
+@jaxtyped(typechecker=typechecked)
+def compare_cosine(
+    connectome_1: Float[np.ndarray, "n_nodes n_nodes"],
+    connectome_2: Float[np.ndarray, "n_nodes n_nodes"],
+    metric_used: str
+) -> None:
     cosine_sim = cosine_similarity(connectome_1.reshape(1, -1), connectome_2.reshape(1, -1))
     assert cosine_sim >= 0.9, f"From Metric {metric_used}, Cosine Similarity is {cosine_sim}, Failed!"
 
-def compare_ks(connectome_1:np.array, connectome_2:np.array, metric_used:str):
-    connectome_1 = torch.Tensor(connectome_1).unsqueeze(0)
-    connectome_2 = torch.Tensor(connectome_2).unsqueeze(0)
+
+@jaxtyped(typechecker=typechecked)
+def compare_ks(
+    connectome_1: Float[np.ndarray, "n_nodes n_nodes"],
+    connectome_2: Float[np.ndarray, "n_nodes n_nodes"],
+    metric_used: str
+) -> None:
+    connectome_1 = torch.tensor(connectome_1).unsqueeze(0)
+    connectome_2 = torch.tensor(connectome_2).unsqueeze(0)
     ks = ks_statistic(connectome_1, connectome_2)
     assert ks < 0.1, f'From Metric {metric_used}, KS Statistic Failed, KS={np.round(ks, 3)}'
 
-# metrics to compare connectomes against
-def compare_node_strength(connectome:np.array):
-    connectome_torch = torch.Tensor(connectome)
+# ---- Metric-specific comparisons ----
+
+@jaxtyped(typechecker=typechecked)
+def compare_node_strength(
+    connectome: Float[np.ndarray, "n_nodes n_nodes"]
+) -> None:
+    connectome_torch = torch.tensor(connectome)
     gnm_node_strength = gnm_metrics.node_strengths(connectome_torch).cpu().numpy()
     bct_node_strengths = bct.strengths_und(connectome)
     compare_exact(gnm_node_strength, bct_node_strengths, 'Node Strength')
 
-def compare_binary_clustering_coefficients(connectome:np.array):
-    connectome_tensor = torch.Tensor(connectome).unsqueeze(0)
+
+@jaxtyped(typechecker=typechecked)
+def compare_binary_clustering_coefficients(
+    connectome: Float[np.ndarray, "n_nodes n_nodes"]
+) -> None:
+    connectome_tensor = torch.tensor(connectome).unsqueeze(0)
     gnm_clust = gnm_metrics.binary_clustering_coefficients(connectome_tensor)
-    gnm_clust = gnm_clust.cpu().numpy()
-    gnm_clust = gnm_clust.reshape(-1)
+    gnm_clust = gnm_clust.cpu().numpy().reshape(-1)
     bct_clust = bct.clustering_coef_bu(connectome)
     compare_exact(gnm_clust, bct_clust, 'Binary Clustering Coefficient')
 
-def compare_weighted_clustering_coefficients(connectome:np.array):
-    connectome_tensor = torch.Tensor(connectome).unsqueeze(0)
-    gnm_clust = gnm_metrics.weighted_clustering_coefficients(connectome_tensor)
-    gnm_clust = gnm_clust.cpu().numpy()
-    gnm_clust = gnm_clust.reshape(-1)
-    bct_clust = bct.clustering_coef_wu(connectome)
 
+@jaxtyped(typechecker=typechecked)
+def compare_weighted_clustering_coefficients(
+    connectome: Float[np.ndarray, "n_nodes n_nodes"]
+) -> None:
+    connectome_tensor = torch.tensor(connectome).unsqueeze(0)
+    gnm_clust = gnm_metrics.weighted_clustering_coefficients(connectome_tensor)
+    gnm_clust = gnm_clust.cpu().numpy().reshape(-1)
+    bct_clust = bct.clustering_coef_wu(connectome)
     compare_exact(gnm_clust, bct_clust, 'Weighted Clustering Coefficient')
 
-def compare_binary_betweenness_centrality(connectome:np.array):
-    connectome_tensor = torch.Tensor(connectome).unsqueeze(0)
-    
+
+@jaxtyped(typechecker=typechecked)
+def compare_binary_betweenness_centrality(
+    connectome: Float[np.ndarray, "n_nodes n_nodes"]
+) -> None:
+    connectome_tensor = torch.tensor(connectome).unsqueeze(0)
     gnm_bc = gnm_metrics.binary_betweenness_centrality(connectome_tensor).squeeze(0)
     gnm_bc = gnm_bc.cpu().numpy()
-    
     bct_bc = bct.betweenness_bin(connectome)
 
     print(gnm_bc)
@@ -65,8 +99,11 @@ def compare_binary_betweenness_centrality(connectome:np.array):
     compare_exact(gnm_bc, bct_bc, 'Binary Betweeness Centrality')
 
 
-def compare_characteristic_path_length(connectome:torch.Tensor):
-    network_nx = connectome.squeeze(0).detach().cpu().numpy()
+@jaxtyped(typechecker=typechecked)
+def compare_characteristic_path_length(
+    connectome: Float[torch.Tensor, "n_nodes n_nodes"]
+) -> None:
+    connectome = torch.tensor(connectome).unsqueeze(0)
     network_nx = nx.from_numpy_array(network_nx)
     nx_charpath = nx.average_shortest_path_length(network_nx)
     gnm_charpath = gnm_metrics.binary_characteristic_path_length(connectome).item()
