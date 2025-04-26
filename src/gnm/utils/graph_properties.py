@@ -7,6 +7,7 @@ clustering coefficients, communicability, and betweenness centrality.
 
 from jaxtyping import Float, jaxtyped
 from typeguard import typechecked
+from typing import Optional, Union
 import torch
 import networkx as nx
 import numpy as np
@@ -454,7 +455,7 @@ def weighted_small_worldness(connectome: Float[torch.Tensor, "*batch num_nodes n
 @jaxtyped(typechecker=typechecked)
 def generate_random_networks(
     num_nodes: int, 
-    density: Float[torch.Tensor, ""], 
+    density: Optional[Float], 
     seed: int, 
     n: int = 1, 
     weighted: bool = False
@@ -492,7 +493,7 @@ def generate_random_networks(
 def simulate_random_graph_clustering(
     num_nodes: int,
     n_iter: int = 100,
-    density: Float[torch.Tensor, "" | None] = None,
+    density: Optional[Float] = None,
     weighted: bool = False,
 ) -> tuple[float, float]:
     r"""
