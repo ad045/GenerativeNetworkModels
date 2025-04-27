@@ -456,7 +456,7 @@ def binary_betweenness_centrality(
     return dependency.sum(dim=1)  # Sum over node dependencies
 
 
-def binary_characteristic_path_length(
+def characteristic_path_length(
     connectome: Float[torch.Tensor, "*batch num_nodes num_nodes"]
 ) -> Float[torch.Tensor, "*batch"]:
     r"""Compute the characteristic path length for each binary network."""
