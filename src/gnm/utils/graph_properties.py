@@ -456,37 +456,40 @@ def binary_betweenness_centrality(
     return dependency.sum(dim=1)  # Sum over node dependencies
 
 
-def binary_charactieristic_path_length(
+def binary_characteristic_path_length(
     connectome: Float[torch.Tensor, "*batch num_nodes num_nodes"]
 ) -> Float[torch.Tensor, "*batch"]:
-    r"""Compute the characteristic path length for each network.
-
-    The characteristic path length is the average shortest path length between all pairs of nodes in a network.
-    It quantifies the efficiency of information transfer in the network.
-
-    Args:
-        connectome:
-            Binary adjacency matrix with shape [*batch, num_nodes, num_nodes]
-
-    Returns:
-        Characteristic path lengths for each network with shape [*batch]
-
-    Examples:
-        >>> import torch
-        >>> from gnm.utils import binary_charactieristic_path_length
-        >>> from gnm import defaults
-        >>> device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        >>> binary_connectome = defaults.get_binary_network(device=DEVICE)
-        >>> path_length = binary_charactieristic_path_length(binary_connectome)
-        >>> path_length.shape
-        torch.Size([1])
-    """
+    r"""Compute the characteristic path length for each binary network."""
     binary_checks(connectome)
 
-    batch_size = connectome.shape[0]
-    num_nodes = connectome.shape[-1]
+    batch_shape = connectome.shape[:-2]
+    n_nodes = connectome.shape[-1]
+
+    connectome = connectome.clone()
+    connectome[connectome == 0] = 1e9
+
+    # Set diagonal to 0 (no self-distance)
+    diag_idx = torch.arange(n_nodes, device=connectome.device)
+    connectome[..., diag_idx, diag_idx] = 0
+
+    # Floyd-Warshall algorithm: iteratively updates the shortest paths between all pairs of nodes using intermediate nodes
+    for k in range(n_nodes):
+        connectome = torch.minimum(
+            connectome,
+            connectome[..., :, k].unsqueeze(-1) + connectome[..., k, :].unsqueeze(-2)
+        )
+
+    # After shortest paths computed:
+    # Mask diagonal (self-distances)
+    mask = ~torch.eye(n_nodes, dtype=bool, device=connectome.device)
     
-    binary_betweenness_centrality_metric = binary_betweenness_centrality(connectome)
+    shortest_paths = connectome[..., mask].reshape(*batch_shape, n_nodes, n_nodes - 1)
+
+    # Mean over all node pairs
+    path_length = shortest_paths.mean(dim=(-1, -2))  # mean over nodes and targets
+
+    return path_length
+
 
 
 @jaxtyped(typechecker=typechecked)
