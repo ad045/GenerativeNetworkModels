@@ -25,6 +25,7 @@ from typeguard import typechecked
 import gc
 from tqdm import tqdm
 import time
+from gnm import fitting, generative_rules, weight_criteria
 
 import wandb
 
@@ -219,6 +220,7 @@ def perform_sweep(
     verbose: Optional[bool] = False,
     wandb_logging: Optional[bool] = False,
     log_time: Optional[bool] = False,
+    bayesian_optimisation: Optional[bool] = False,
 ) -> List[Experiment]:
     r"""Perform a parameter sweep over multiple model configurations.
 
@@ -311,7 +313,7 @@ def perform_sweep(
 
     print(f'Using device: {device} for GNM simulations')
     
-    if wandb_logging:
+    if wandb_logging or bayesian_optimisation:
         print('Logging experiment to wandb - login may be required.')
         project_name = input('Enter wandb project name: ')
 
@@ -319,10 +321,70 @@ def perform_sweep(
 
     run_times = []
 
-    for run_config in tqdm(sweep_config, desc='Configuration Iterations', total=config_count, disable=not verbose):
-        start_time = time.perf_counter()
-        experiment = perform_run(
-            run_config=run_config,
+
+    """
+    init with sweep specified with single parameters, send of to wandb for eval,
+    get parameters back and repeat until convergence (how does wandb define this?)
+
+    Issues:
+    - wandb does not support nested lists, so we need to flatten the sweep config
+    - wandb does not support nested dictionaries, so we need to flatten the sweep config
+    - I have no idea what wandb will return
+    - I have no idea how to make sure that if you've specified lambda to 0, you keep it that way
+    - How do we define convergence here?? 
+    """
+    
+    if bayesian_optimisation:
+        exp = ExperimentEvaluation(save=False)
+        init_config = sweep_config[0]
+
+        init_experiment = perform_run(
+                run_config=init_config,
+                binary_evaluations=binary_evaluations,
+                weighted_evaluations=weighted_evaluations,
+                real_binary_matrices=real_binary_matrices,
+                real_weighted_matrices=real_weighted_matrices,
+                save_model=save_model,
+                save_run_history=save_run_history,
+                device=device,
+        )
+
+        experiment_data_config = exp._save_experiment(init_experiment)
+        wandb.init(project=project_name, config=experiment_data_config)
+        config = wandb.config
+        
+        # wandb bayesian iterations
+        iterations = 0
+        while iterations < 10000 and not wandb.run.resumed:
+            binary_sweep_parameters = fitting.BinarySweepParameters(
+            eta = config.eta_values,
+            gamma = config.gamma_values,
+            lambdah = config.lambdah_values,
+            distance_relationship_type = init_config.binary_parameters.distance_relationship_type,
+            preferential_relationship_type = init_config.binary_parameters.preferential_relationship_type,
+            heterochronicity_relationship_type = init_config.binary_parameters.heterochronicity_relationship_type,
+            generative_rule = [generative_rules.MatchingIndex()],
+            num_iterations = [config.num_connections],
+            )
+
+            # The weighted sweep parameters are the parameters that are used to generate the weighted network
+            weighted_sweep_parameters = fitting.WeightedSweepParameters(
+                alpha = config.alpha_values,
+                optimisation_criterion = [weight_criteria.DistanceWeightedCommunicability(distance_matrix=init_config.distance_matrix) ],
+            )  
+
+
+            # The sweep config is the object that contains all the parameters for the sweep
+            # and is used to generate the networks.
+            sweep_config = fitting.SweepConfig(
+                binary_sweep_parameters = binary_sweep_parameters,
+                weighted_sweep_parameters = weighted_sweep_parameters,
+                num_simulations = init_config.num_simulations,
+                distance_matrix = init_config.distance_matrix
+            )
+
+            init_experiment = perform_run(
+            run_config=init_config,
             binary_evaluations=binary_evaluations,
             weighted_evaluations=weighted_evaluations,
             real_binary_matrices=real_binary_matrices,
@@ -330,30 +392,48 @@ def perform_sweep(
             save_model=save_model,
             save_run_history=save_run_history,
             device=device,
-        )
+            )
 
-        end_time = time.perf_counter()
-        run_time = end_time - start_time
-        run_times.append(run_time)
-
-        run_results.append(experiment)
-
-        if wandb_logging:
-            exp = ExperimentEvaluation(save=False)
-            experiment_data_config = exp._save_experiment(experiment)
+            experiment_data_config = exp._save_experiment(init_experiment)
             wandb.init(project=project_name, config=experiment_data_config)
-            wandb.log(experiment_data_config)  
-            wandb.finish()
+            config = wandb.config
 
-        gc.collect()
-        torch.cuda.empty_cache()
+    else:
+        for run_config in tqdm(sweep_config, desc='Configuration Iterations', total=config_count, disable=not verbose):
+            start_time = time.perf_counter()
+            experiment = perform_run(
+                run_config=run_config,
+                binary_evaluations=binary_evaluations,
+                weighted_evaluations=weighted_evaluations,
+                real_binary_matrices=real_binary_matrices,
+                real_weighted_matrices=real_weighted_matrices,
+                save_model=save_model,
+                save_run_history=save_run_history,
+                device=device,
+            )
 
-    # return the total time and times recorded per run 
-    if log_time:
-        avg_time = sum(run_times) / len(run_times)
-        print(f'Average time per run: {avg_time:.2f} seconds')
-        print(f'Total time for sweep: {sum(run_times):.2f} seconds')
-        return run_results, run_times
+            end_time = time.perf_counter()
+            run_time = end_time - start_time
+            run_times.append(run_time)
+
+            run_results.append(experiment)
+
+            if wandb_logging:
+                exp = ExperimentEvaluation(save=False)
+                experiment_data_config = exp._save_experiment(experiment)
+                wandb.init(project=project_name, config=experiment_data_config)
+                wandb.log(experiment_data_config)  
+                wandb.finish()
+
+            gc.collect()
+            torch.cuda.empty_cache()
+
+        # return the total time and times recorded per run 
+        if log_time:
+            avg_time = sum(run_times) / len(run_times)
+            print(f'Average time per run: {avg_time:.2f} seconds')
+            print(f'Total time for sweep: {sum(run_times):.2f} seconds')
+            return run_results, run_times
 
     return run_results
 
