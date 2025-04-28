@@ -19,7 +19,7 @@ from gnm.evaluation import (
 )
 from typing import Iterator
 import torch
-from typing import List, Optional, Any, Union
+from typing import List, Optional, Any, Union, Literal
 from jaxtyping import Float, jaxtyped
 from typeguard import typechecked
 import gc
@@ -48,7 +48,6 @@ from .experiment_saving import (
 from gnm.utils import binary_checks, weighted_checks
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 
 @jaxtyped(typechecker=typechecked)
 def perform_run(
@@ -219,8 +218,8 @@ def perform_sweep(
     device: Optional[Union[torch.device, str]] = None,
     verbose: Optional[bool] = False,
     wandb_logging: Optional[bool] = False,
-    log_time: Optional[bool] = False,
-    bayesian_optimisation: Optional[bool] = False,
+    method: Literal["bayesian", "grid"] = "grid",
+    num_bayesian_runs: Optional[int] = 30,
 ) -> List[Experiment]:
     r"""Perform a parameter sweep over multiple model configurations.
 
@@ -264,6 +263,16 @@ def perform_sweep(
 
         wandb_logging:
             If True, logs the experiment to Weights & Biases. Defaults to False. May reqire a login.
+
+        method:
+            The method to use for the sweep. Options are 'bayesian' or 'grid'.
+            Defaults to 'grid'.
+            - 'bayesian': Uses Bayesian optimization to explore the parameter space (Relies on Wandb).
+            - 'grid': Performs a grid search over the parameter space.
+
+        num_bayesian_runs:
+            The number of runs to perform for the Bayesian sweep. Defaults to 30.
+            This is only used if method is 'bayesian'.
 
     Returns:
         A list of Experiment objects, one for each parameter combination in the sweep.
@@ -309,82 +318,20 @@ def perform_sweep(
         - [`fitting.perform_run`][gnm.fitting.perform_run]: Function for running a single configuration
         - [`fitting.optimise_evaluation`][gnm.fitting.optimise_evaluation]: Function for finding optimal parameters
     """
-    run_results = []
 
-    print(f'Using device: {device} for GNM simulations')
-    
-    if wandb_logging or bayesian_optimisation:
-        print('Logging experiment to wandb - login may be required.')
-        project_name = input('Enter wandb project name: ')
+    def wandb_agent_single_run(init_run=None):
 
-    config_count = len(list(sweep_config))
+        if init_run is not None:
+            # get the run config from wandb
+            run_config = init_run
+        else:
+            # setup run configuration with new eta and gamma
+            run_config = sweep_config[0]
+            run_config.binary_parameters.eta = config.eta
+            run_config.binary_parameters.gamma = config.gamma
 
-    run_times = []
-
-
-    """
-    init with sweep specified with single parameters, send of to wandb for eval,
-    get parameters back and repeat until convergence (how does wandb define this?)
-
-    Issues:
-    - wandb does not support nested lists, so we need to flatten the sweep config
-    - wandb does not support nested dictionaries, so we need to flatten the sweep config
-    - I have no idea what wandb will return
-    - I have no idea how to make sure that if you've specified lambda to 0, you keep it that way
-    - How do we define convergence here?? 
-    """
-    
-    if bayesian_optimisation:
-        exp = ExperimentEvaluation(save=False)
-        init_config = sweep_config[0]
-
-        init_experiment = perform_run(
-                run_config=init_config,
-                binary_evaluations=binary_evaluations,
-                weighted_evaluations=weighted_evaluations,
-                real_binary_matrices=real_binary_matrices,
-                real_weighted_matrices=real_weighted_matrices,
-                save_model=save_model,
-                save_run_history=save_run_history,
-                device=device,
-        )
-
-        experiment_data_config = exp._save_experiment(init_experiment)
-        wandb.init(project=project_name, config=experiment_data_config)
-        config = wandb.config
-        
-        # wandb bayesian iterations
-        iterations = 0
-        while iterations < 10000 and not wandb.run.resumed:
-            binary_sweep_parameters = fitting.BinarySweepParameters(
-            eta = config.eta_values,
-            gamma = config.gamma_values,
-            lambdah = config.lambdah_values,
-            distance_relationship_type = init_config.binary_parameters.distance_relationship_type,
-            preferential_relationship_type = init_config.binary_parameters.preferential_relationship_type,
-            heterochronicity_relationship_type = init_config.binary_parameters.heterochronicity_relationship_type,
-            generative_rule = [generative_rules.MatchingIndex()],
-            num_iterations = [config.num_connections],
-            )
-
-            # The weighted sweep parameters are the parameters that are used to generate the weighted network
-            weighted_sweep_parameters = fitting.WeightedSweepParameters(
-                alpha = config.alpha_values,
-                optimisation_criterion = [weight_criteria.DistanceWeightedCommunicability(distance_matrix=init_config.distance_matrix) ],
-            )  
-
-
-            # The sweep config is the object that contains all the parameters for the sweep
-            # and is used to generate the networks.
-            sweep_config = fitting.SweepConfig(
-                binary_sweep_parameters = binary_sweep_parameters,
-                weighted_sweep_parameters = weighted_sweep_parameters,
-                num_simulations = init_config.num_simulations,
-                distance_matrix = init_config.distance_matrix
-            )
-
-            init_experiment = perform_run(
-            run_config=init_config,
+        experiment = perform_run(
+            run_config=run_config,
             binary_evaluations=binary_evaluations,
             weighted_evaluations=weighted_evaluations,
             real_binary_matrices=real_binary_matrices,
@@ -392,13 +339,24 @@ def perform_sweep(
             save_model=save_model,
             save_run_history=save_run_history,
             device=device,
-            )
+        )
 
-            experiment_data_config = exp._save_experiment(init_experiment)
-            wandb.init(project=project_name, config=experiment_data_config)
-            config = wandb.config
+        eval_binary_score, eval_weighted_score = experiment.evaluation_results.binary_evaluations, experiment.evaluation_results.weighted_evaluations
 
-    else:
+        wandb.log({
+            'binary_metric':eval_binary_score,
+            'weighted_metric': eval_weighted_score
+        })
+
+        # get all other experiment info in dictionary format 
+        experiment_data_config = exp._save_experiment(experiment)
+        
+        wandb.log(experiment_data_config)  
+        wandb.finish()
+
+    def perform_grid_sweep():
+        run_results = []
+        run_times = []
         for run_config in tqdm(sweep_config, desc='Configuration Iterations', total=config_count, disable=not verbose):
             start_time = time.perf_counter()
             experiment = perform_run(
@@ -427,13 +385,67 @@ def perform_sweep(
 
             gc.collect()
             torch.cuda.empty_cache()
+        
+        return run_results, run_times
+    
+    def bayesian_run():
+        start_time = time.perf_counter()
+        wandb.agent(sweep_id, function=wandb_agent_single_run, project=project_name, count=num_bayesian_runs)
+        end_time = time.perf_counter()
 
-        # return the total time and times recorded per run 
-        if log_time:
-            avg_time = sum(run_times) / len(run_times)
-            print(f'Average time per run: {avg_time:.2f} seconds')
-            print(f'Total time for sweep: {sum(run_times):.2f} seconds')
-            return run_results, run_times
+        run_time = end_time - start_time
+
+        api = wandb.Api()
+        sweep = api.sweep(f"{project_name}/{sweep_id}")
+        best_run = sweep.best_run()
+        best_params = best_run.config
+
+        return best_params, run_time
+
+
+    method_options = {
+        'bayesian': lambda x: bayesian_run(),
+        'grid': perform_grid_sweep,
+    }
+
+    print(f'Using device: {device} for GNM simulations')
+
+    if method == 'bayesian':
+        eta_min = sweep_config.binary_sweep_parameters.eta.min()
+        eta_max = sweep_config.binary_sweep_parameters.eta.max()
+
+        gamma_min = sweep_config.binary_sweep_parameters.gamma.min()
+        gamma_max = sweep_config.binary_sweep_parameters.gamma.max()
+
+        binary_sweep_configuration = {
+        "name": project_name,
+        "method": "bayes",
+        "metric": {"goal": "minimize", "name": "binary_metric"},
+        "parameters": {
+            'eta': {"min": eta_min, "max": eta_max},
+            'gamma': {"min": gamma_min, "max": gamma_max},
+            },
+        }
+        
+        run = wandb.init(project=project_name, config=binary_sweep_configuration)
+        config = run.config
+        sweep_id = wandb.sweep(sweep=binary_sweep_configuration, project=project_name)
+
+    
+    if wandb_logging or method == 'bayesian':
+        # for experiment logging if wandb is used - ignore if not 
+        exp = ExperimentEvaluation(save=False)
+        print('Logging experiment to wandb - login may be required.')
+        wandb.login()
+        project_name = input('Enter wandb project name: ')
+
+    config_count = len(list(sweep_config))
+    run_results, run_times = method_options[method]()
+
+    if verbose:
+        avg_time = sum(run_times) / len(run_times)
+        print(f'Average time per run: {avg_time:.2f} seconds')
+        print(f'Total time for sweep: {sum(run_times):.2f} seconds')
 
     return run_results
 
