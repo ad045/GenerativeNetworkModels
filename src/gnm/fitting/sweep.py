@@ -16,6 +16,7 @@ from gnm.evaluation import (
     BinaryEvaluationCriterion,
     WeightedEvaluationCriterion,
     CompositeCriterion,
+    EvaluationCriterion
 )
 from typing import Iterator
 import torch
@@ -220,6 +221,7 @@ def perform_sweep(
     wandb_logging: Optional[bool] = False,
     method: Literal["bayesian", "grid"] = "grid",
     num_bayesian_runs: Optional[int] = 30,
+    metric_to_optimise: Optional[Union[str, EvaluationCriterion]] = None,
 ) -> List[Experiment]:
     r"""Perform a parameter sweep over multiple model configurations.
 
@@ -374,18 +376,17 @@ def perform_sweep(
 
             run_results.append(experiment)
 
-            eval_binary_score = experiment.evaluation_results.binary_evaluations
-            eval_weighted_score = experiment.evaluation_results.weighted_evaluations
+            # eval_binary_score = experiment.evaluation_results.binary_evaluations
+            # eval_weighted_score = experiment.evaluation_results.weighted_evaluations
 
-            wandb.log({
-                'binary_metric': eval_binary_score,
-                'weighted_metric': eval_weighted_score
-            })
+            # wandb.log({
+            #     metric_to_optimise: eval_binary_score,
+            # })
 
             experiment_data_config = exp._save_experiment(experiment)
             wandb.log(experiment_data_config)
     
-    def bayesian_run(sweep_config_dict):
+    def perform_bayesian_sweep(sweep_config_dict):
         sweep_id = wandb.sweep(sweep=sweep_config_dict, project=project_name)
 
         start_time = time.perf_counter()
@@ -396,8 +397,6 @@ def perform_sweep(
 
         api = wandb.Api()
         sweep = api.sweep(f"{project_name}/{sweep_id}")
-        # best_run = sweep.best_run()
-        # best_params = best_run.config
 
         return run_time
 
@@ -411,6 +410,17 @@ def perform_sweep(
         project_name = input('Enter wandb project name: ')
 
     if method == 'bayesian':
+        if metric_to_optimise is None:
+            if len(binary_evaluations) != 0:
+                metric_to_optimise = binary_evaluations[0]
+            elif len(weighted_evaluations) != 0:
+                metric_to_optimise = weighted_evaluations[0]
+            else:
+                raise ValueError("No evaluation criteria provided for Bayesian optimisation.")
+            
+        if isinstance(metric_to_optimise, EvaluationCriterion):
+            metric_to_optimise = str(metric_to_optimise)
+
         run_results = []
         eta_min = float(sweep_config.binary_sweep_parameters.eta.min().item())
         eta_max = float(sweep_config.binary_sweep_parameters.eta.max().item())
@@ -421,7 +431,7 @@ def perform_sweep(
         binary_sweep_configuration = {
         "name": project_name,
         "method": "bayes",
-        "metric": {"goal": "minimize", "name": "binary_metric"},
+        "metric": {"goal": "minimize", "name": metric_to_optimise},
         "parameters": {
             'eta': {"min": eta_min, "max": eta_max},
             'gamma': {"min": gamma_min, "max": gamma_max},
@@ -429,8 +439,7 @@ def perform_sweep(
         }
 
         run_config = next(iter(sweep_config))
-        
-        run_times = bayesian_run(binary_sweep_configuration)
+        run_times = perform_bayesian_sweep(binary_sweep_configuration)
 
     else:
         config_count = len(list(sweep_config))
