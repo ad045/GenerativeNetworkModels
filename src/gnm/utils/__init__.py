@@ -23,10 +23,9 @@ from .graph_properties import (
     binary_characteristic_path_length,
     binary_small_worldness,
     weighted_small_worldness,
-    generate_random_networks
 )
 from .checks import binary_checks, weighted_checks
-from .control import get_control
+from .control import get_control, generate_random_networks, simulate_random_graph_clustering
 from .convert_datatypes import np_to_tensor
 
 __all__ = [
