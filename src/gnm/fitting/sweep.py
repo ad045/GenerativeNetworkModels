@@ -16,15 +16,17 @@ from gnm.evaluation import (
     BinaryEvaluationCriterion,
     WeightedEvaluationCriterion,
     CompositeCriterion,
+    EvaluationCriterion
 )
 from typing import Iterator
 import torch
-from typing import List, Optional, Any, Union
+from typing import List, Optional, Any, Union, Literal
 from jaxtyping import Float, jaxtyped
 from typeguard import typechecked
 import gc
 from tqdm import tqdm
 import time
+from gnm import fitting, generative_rules, weight_criteria
 
 import wandb
 
@@ -47,7 +49,6 @@ from .experiment_saving import (
 from gnm.utils import binary_checks, weighted_checks
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 
 @jaxtyped(typechecker=typechecked)
 def perform_run(
@@ -218,7 +219,9 @@ def perform_sweep(
     device: Optional[Union[torch.device, str]] = None,
     verbose: Optional[bool] = False,
     wandb_logging: Optional[bool] = False,
-    log_time: Optional[bool] = False,
+    method: Literal["bayesian", "grid"] = "grid",
+    num_bayesian_runs: Optional[int] = 30,
+    metric_to_optimise: Optional[Union[str, EvaluationCriterion]] = None,
 ) -> List[Experiment]:
     r"""Perform a parameter sweep over multiple model configurations.
 
@@ -262,6 +265,16 @@ def perform_sweep(
 
         wandb_logging:
             If True, logs the experiment to Weights & Biases. Defaults to False. May reqire a login.
+
+        method:
+            The method to use for the sweep. Options are 'bayesian' or 'grid'.
+            Defaults to 'grid'.
+            - 'bayesian': Uses Bayesian optimization to explore the parameter space (Relies on Wandb).
+            - 'grid': Performs a grid search over the parameter space.
+
+        num_bayesian_runs:
+            The number of runs to perform for the Bayesian sweep. Defaults to 30.
+            This is only used if method is 'bayesian'.
 
     Returns:
         A list of Experiment objects, one for each parameter combination in the sweep.
@@ -307,53 +320,135 @@ def perform_sweep(
         - [`fitting.perform_run`][gnm.fitting.perform_run]: Function for running a single configuration
         - [`fitting.optimise_evaluation`][gnm.fitting.optimise_evaluation]: Function for finding optimal parameters
     """
-    run_results = []
 
-    print(f'Using device: {device} for GNM simulations')
+    def perform_grid_sweep():
+        run_results = []
+        run_times = []
+        for run_config in tqdm(sweep_config, desc='Configuration Iterations', total=config_count, disable=not verbose):
+            start_time = time.perf_counter()
+            experiment = perform_run(
+                run_config=run_config,
+                binary_evaluations=binary_evaluations,
+                weighted_evaluations=weighted_evaluations,
+                real_binary_matrices=real_binary_matrices,
+                real_weighted_matrices=real_weighted_matrices,
+                save_model=save_model,
+                save_run_history=save_run_history,
+                device=device,
+            )
+
+            end_time = time.perf_counter()
+            run_time = end_time - start_time
+            run_times.append(run_time)
+
+            run_results.append(experiment)
+
+            if wandb_logging:
+                exp = ExperimentEvaluation(save=False)
+                experiment_data_config = exp._save_experiment(experiment)
+                wandb.init(project=project_name, config=experiment_data_config)
+                wandb.log(experiment_data_config)  
+                wandb.finish()
+
+            gc.collect()
+            torch.cuda.empty_cache()
+        
+        return run_results, run_times
+
+    def wandb_agent_single_run():
+        with wandb.init() as run:
+            config = wandb.config
+
+            # Insert config values into run config
+            run_config.eta = torch.Tensor([config.eta])
+            run_config.gamma = torch.Tensor([config.gamma])
+
+            experiment = perform_run(
+                run_config=run_config,
+                binary_evaluations=binary_evaluations,
+                weighted_evaluations=weighted_evaluations,
+                real_binary_matrices=real_binary_matrices,
+                real_weighted_matrices=real_weighted_matrices,
+                save_model=save_model,
+                save_run_history=save_run_history,
+                device=device,
+            )
+
+            run_results.append(experiment)
+
+            # eval_binary_score = experiment.evaluation_results.binary_evaluations
+            # eval_weighted_score = experiment.evaluation_results.weighted_evaluations
+
+            # wandb.log({
+            #     metric_to_optimise: eval_binary_score,
+            # })
+
+            experiment_data_config = exp._save_experiment(experiment)
+            wandb.log(experiment_data_config)
     
+    def perform_bayesian_sweep(sweep_config_dict):
+        sweep_id = wandb.sweep(sweep=sweep_config_dict, project=project_name)
+
+        start_time = time.perf_counter()
+        wandb.agent(sweep_id, function=wandb_agent_single_run, project=project_name, count=num_bayesian_runs)
+        end_time = time.perf_counter()
+
+        run_time = [end_time - start_time]
+
+        api = wandb.Api()
+        sweep = api.sweep(f"{project_name}/{sweep_id}")
+
+        return run_time
+
+    
+    print(f'Using device: {device} for GNM simulations')
     if wandb_logging:
+        # for experiment logging if wandb is used - ignore if not 
+        exp = ExperimentEvaluation(save=False)
         print('Logging experiment to wandb - login may be required.')
+        wandb.login()
         project_name = input('Enter wandb project name: ')
 
-    config_count = len(list(sweep_config))
+    if method == 'bayesian':
+        if metric_to_optimise is None:
+            if len(binary_evaluations) != 0:
+                metric_to_optimise = binary_evaluations[0]
+            elif len(weighted_evaluations) != 0:
+                metric_to_optimise = weighted_evaluations[0]
+            else:
+                raise ValueError("No evaluation criteria provided for Bayesian optimisation.")
+            
+        if isinstance(metric_to_optimise, EvaluationCriterion):
+            metric_to_optimise = str(metric_to_optimise)
 
-    run_times = []
+        run_results = []
+        eta_min = float(sweep_config.binary_sweep_parameters.eta.min().item())
+        eta_max = float(sweep_config.binary_sweep_parameters.eta.max().item())
 
-    for run_config in tqdm(sweep_config, desc='Configuration Iterations', total=config_count, disable=not verbose):
-        start_time = time.perf_counter()
-        experiment = perform_run(
-            run_config=run_config,
-            binary_evaluations=binary_evaluations,
-            weighted_evaluations=weighted_evaluations,
-            real_binary_matrices=real_binary_matrices,
-            real_weighted_matrices=real_weighted_matrices,
-            save_model=save_model,
-            save_run_history=save_run_history,
-            device=device,
-        )
+        gamma_min = float(sweep_config.binary_sweep_parameters.gamma.min().item())
+        gamma_max = float(sweep_config.binary_sweep_parameters.gamma.max().item())
 
-        end_time = time.perf_counter()
-        run_time = end_time - start_time
-        run_times.append(run_time)
+        binary_sweep_configuration = {
+        "name": project_name,
+        "method": "bayes",
+        "metric": {"goal": "minimize", "name": metric_to_optimise},
+        "parameters": {
+            'eta': {"min": eta_min, "max": eta_max},
+            'gamma': {"min": gamma_min, "max": gamma_max},
+            },
+        }
 
-        run_results.append(experiment)
+        run_config = next(iter(sweep_config))
+        run_times = perform_bayesian_sweep(binary_sweep_configuration)
 
-        if wandb_logging:
-            exp = ExperimentEvaluation(save=False)
-            experiment_data_config = exp._save_experiment(experiment)
-            wandb.init(project=project_name, config=experiment_data_config)
-            wandb.log(experiment_data_config)  
-            wandb.finish()
+    else:
+        config_count = len(list(sweep_config))
+        run_results, run_times = perform_grid_sweep()
 
-        gc.collect()
-        torch.cuda.empty_cache()
-
-    # return the total time and times recorded per run 
-    if log_time:
+    if verbose:
         avg_time = sum(run_times) / len(run_times)
         print(f'Average time per run: {avg_time:.2f} seconds')
         print(f'Total time for sweep: {sum(run_times):.2f} seconds')
-        return run_results, run_times
 
     return run_results
 

@@ -538,6 +538,36 @@ def binary_small_worldness(
 def weighted_small_worldness(connectome: Float[torch.Tensor, "*batch num_nodes num_nodes"], 
                              average_random_clustering=0.451, 
                              average_random_path_length=0.013):
+
+    """
+    Calculates the weighted small-worldness (omega) of a connectome or a batch of connectomes.
+    Small-worldness is a measure of how efficiently a network balances local clustering 
+    and global integration. This function computes the small-worldness based on the 
+    weighted clustering coefficients and the average shortest path length of the network.
+    Args:
+        connectome (Float[torch.Tensor, "*batch num_nodes num_nodes"]): 
+            A batch of adjacency matrices representing the connectomes. The tensor 
+            should have shape (batch_size, num_nodes, num_nodes) and contain edge weights.
+        average_random_clustering (float, optional): 
+            The average clustering coefficient of a comparable random network. Defaults to 0.451.
+        average_random_path_length (float, optional): 
+            The average shortest path length of a comparable random network. Defaults to 0.013.
+    Returns:
+        np.ndarray: 
+            A 1D numpy array containing the small-worldness (omega) values for each connectome 
+            in the batch.
+    Raises:
+        ValueError: If the input tensor does not have the expected shape or contains invalid data.
+    Notes:
+        - The function assumes that the input connectome is weighted and undirected.
+        - Self-loops are removed from the graph before calculating shortest path lengths.
+        - The weighted clustering coefficients are computed using a separate helper function 
+        `weighted_clustering_coefficients`.
+    Example:
+        >>> connectome = torch.rand(5, 10, 10)  # Batch of 5 connectomes with 10 nodes each
+        >>> small_worldness = weighted_small_worldness(connectome)
+        >>> print(small_worldness)
+    """
     
     # Real network measures
     connectome_np = connectome.detach().cpu().numpy()

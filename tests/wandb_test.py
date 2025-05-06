@@ -9,8 +9,9 @@ DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 distance_matrix = defaults.get_distance_matrix(device=DEVICE)
 binary_consensus_network = defaults.get_binary_network(device=DEVICE)
 
-eta_values = torch.Tensor([1]) #torch.linspace(-5, -1, 1)
-gamma_values = torch.Tensor([-1])#torch.linspace(-0.5, 0.5, 1)
+eta_values = torch.Tensor([1, 2, 3, 4, 5]) # torch.linspace(-5, -1, 5)
+gamma_values = torch.Tensor([5, 4, 3, 2, 1]) # torch.linspace(-0.5, 0.5, 5)
+
 num_connections = int( binary_consensus_network.sum().item() / 2 )
 
 binary_sweep_parameters = fitting.BinarySweepParameters(
@@ -50,5 +51,8 @@ experiments = fitting.perform_sweep(sweep_config=sweep_config,
                                 save_model = False,
                                 save_run_history = False,
                                 verbose=True,
-                                wandb_logging=True
+                                wandb_logging=True,
+                                method='bayesian',
+                                num_bayesian_runs=2,
 )
+

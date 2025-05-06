@@ -37,3 +37,5 @@
 :::gnm.utils.weighted_small_worldness
 
 :::gnm.utils.generate_random_networks
+
+:::gnm.utils.characteristic_path_length
