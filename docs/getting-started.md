@@ -28,7 +28,7 @@ Done!
 This is a big package and can be a little intimidating at first. Not to fear! Here's a quick overview of what you can do with the GNM toolbox and how to do it too. 
 For a comphrehensive overview of the toolbox, see [PREPRINT CITE HERE]. 
 
-1. Generative Network Models
+### Generative Network Models
 The 'GNM' in GNM Toolbox stands for Generative Network Model, which is a model of brain development designed to mimic some of the developmental mechanisms going on at a neural level. 
 In its simplest form, you can use a binary GNM to grow a network using a cost rule and a wiring rule. These are the basic rules governing network development and are adjusted to create artificial networks that have similar properties to that of an actual brain network. 
 
@@ -41,5 +41,5 @@ The wiring rule tells the model how much value it should put into creating a new
 
 The economic trade-off between these rules means that we can explore how different parameters and rules act in unison to create a network, with the goal often being creating something that looks as close to the brain as possible. There are many other varieties beyond binary models, like weighted and heterochronicity-based models, which you can have a look at in our [example scripts page](https://generative-network-models-toolbox.readthedocs.io/en/latest/examples/) or within the API reference guide. 
 
-2. Model Fitting
+### Model Fitting
 So we're able to create networks that have many of the properties of the brain. This is amazing, but what if we want to find properties of a <i>specific</i> brain? This is where model sweeps come in. We've mentioned <i>eta</i> $\eta$ and <i>gamma</i> $\gamma$ so far, and that you can play with these parameters to change their influence in the model. By running through a sequence of each and comparing the final model with that of a real brain network in the form of an adjacency matrix, you can work out what parameters of the model will create properties best representative of reality. Again, this is where our example scripts come in really helpful if you want to learn more. 
