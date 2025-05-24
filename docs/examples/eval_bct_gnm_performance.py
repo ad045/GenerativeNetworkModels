@@ -86,7 +86,7 @@ def simulate_gnm(num_simulations, eta, gamma, num_connections, distance_matrix, 
         model = GenerativeNetworkModel(
             binary_parameters=binary_parameters,
             num_simulations=i,
-            distance_matrix=distance_matrix.to(torch.device('cpu')),
+            distance_matrix=distance_matrix.to(torch.device('cuda' if torch.cuda.is_available() else 'cpu')),
             verbose=False
         )
 
@@ -98,15 +98,15 @@ def simulate_gnm(num_simulations, eta, gamma, num_connections, distance_matrix, 
     return end_time - start_time
 
 
-DEVICE = torch.device('cpu') # 
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(f'Using device: {DEVICE} for GNM simulations')
 
 time_gnm = []
 time_bct = []
-df = {'connectome_size': [], 'num_connections':[], 'time_gnm': [], 'time_bct': []} 
+df = {'connectome_size': [], 'num_connections':[], 'time_gnm': []} # , 'time_bct': [] 
 
-connectome_size_range = list(reversed(range(100, 850, 50)))
-num_connections_range = list(reversed(range(50, 1000, 100))) 
+connectome_size_range = list(reversed(range(100, 1600, 100)))
+num_connections_range = list(reversed(range(100, 3100, 100))) 
 
 for num_connections in tqdm(num_connections_range, leave=False):
     for connectome_size in connectome_size_range:
@@ -126,21 +126,21 @@ for num_connections in tqdm(num_connections_range, leave=False):
         eta = -0.1
         gamma = 0.1
         num_simulations = 10
-        batch_size = 8
+        batch_size = 10
 
         gc.collect()
         torch.cuda.empty_cache()
         
         gnm_time = simulate_gnm(num_simulations, eta, gamma, num_connections, dist_matrix_torch, batch_size)
-        bct_time = simulate_bct(num_simulations, [eta], [gamma], adj_matrix, num_connections, dist_matrix_np)
+        #bct_time = simulate_bct(num_simulations, [eta], [gamma], adj_matrix, num_connections, dist_matrix_np)
 
         df['connectome_size'].append(connectome_size)
         df['num_connections'].append(num_connections)
         
         df['time_gnm'].append(gnm_time)
-        df['time_bct'].append(bct_time)
+        #df['time_bct'].append(bct_time)
 
         # save as you go
         df_pd = pd.DataFrame(df)
-        df_pd.to_csv('/home/wm02/Documents/gnm_bct_cpu_results.csv', index=False)
+        df_pd.to_csv('gnm_gpu_results.csv', index=False)
 
