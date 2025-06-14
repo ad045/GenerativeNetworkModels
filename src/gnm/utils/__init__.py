@@ -20,7 +20,7 @@ from .graph_properties import (
     weighted_clustering_coefficients,
     communicability,
     binary_betweenness_centrality,
-    binary_characteristic_path_length,
+    characteristic_path_length,
     binary_small_worldness,
     weighted_small_worldness,
 )
@@ -38,8 +38,8 @@ __all__ = [
     "binary_checks",
     "weighted_checks",
     "get_control",
-    "np_to_tensor"
-    "binary_characteristic_path_length",
+    "np_to_tensor",
+    "characteristic_path_length",
     "binary_small_worldness",
     "weighted_small_worldness",
     "generate_random_networks",
