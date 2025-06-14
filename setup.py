@@ -26,6 +26,7 @@ setup(
         "urllib3==2.3.0",
         "wheel==0.44.0",
         "zipp==3.21.0",
+        "wandb==0.15.12"
     ],
     python_requires=">=3.9",
     classifiers=[
