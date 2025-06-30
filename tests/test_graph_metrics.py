@@ -1,6 +1,7 @@
 import bct
 import numpy as np
 from gnm.utils import graph_properties as gnm_metrics
+from gnm.defaults import get_weighted_network
 import torch
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics.pairwise import cosine_similarity
@@ -24,6 +25,22 @@ def compare_exact(
     connectome_2: Float[np.ndarray, "n_nodes n_nodes"],
     metric_used: str
 ) -> None:
+    assert np.allclose(connectome_1, connectome_2, atol=1e-2), \
+        f"From Metric {metric_used}, Exact Adj. Matrices don't match!"
+    
+@jaxtyped(typechecker=typechecked)
+def compare_exact_metric(
+    connectome_1: Float[np.ndarray, "n_nodes"],
+    connectome_2: Float[np.ndarray, "n_nodes"],
+    metric_used: str,
+    verbose: bool = True,
+) -> None:
+    
+    if verbose:    
+        print(connectome_1)
+        print('-' * 50)
+        print(connectome_2)
+
     assert np.allclose(connectome_1, connectome_2, atol=1e-2), \
         f"From Metric {metric_used}, Exact Adj. Matrices don't match!"
 
@@ -80,6 +97,7 @@ def compare_weighted_clustering_coefficients(
     gnm_clust = gnm_metrics.weighted_clustering_coefficients(connectome_tensor)
     gnm_clust = gnm_clust.cpu().numpy().reshape(-1)
     bct_clust = bct.clustering_coef_wu(connectome)
+
     compare_exact(gnm_clust, bct_clust, 'Weighted Clustering Coefficient')
 
 
@@ -98,6 +116,20 @@ def compare_binary_betweenness_centrality(
 
     compare_exact(gnm_bc, bct_bc, 'Binary Betweeness Centrality')
 
+@jaxtyped(typechecker=typechecked)
+def compare_weighted_betweenness_centrality(
+    connectome: Float[np.ndarray, "n_nodes n_nodes"]
+) -> None:
+    connectome_tensor = torch.tensor(connectome).unsqueeze(0)
+    gnm_bc = gnm_metrics.weighted_betweenness_centrality(connectome_tensor).squeeze(0)
+    gnm_bc = gnm_bc.cpu().numpy()
+    bct_bc = bct.betweenness_wei(connectome)
+    
+    scaler = MinMaxScaler((0, 1))
+    bct_bc = scaler.fit_transform(bct_bc.reshape(-1, 1)).reshape(-1) / 2
+
+    compare_exact_metric(gnm_bc, bct_bc, 'Weighted Betweeness Centrality', verbose=True)
+
 
 @jaxtyped(typechecker=typechecked)
 def compare_characteristic_path_length(
@@ -112,9 +144,9 @@ def compare_characteristic_path_length(
         f"Characteristic Path Length Failed, GNM={gnm_charpath}, NetworkX={nx_charpath}"
 
 
-scaler = MinMaxScaler((0, 1))
-weighted_connectome = np.load('./tests/mean_connectome.npy')
-weighted_connectome = scaler.fit_transform(weighted_connectome)
+# weighted_connectome = np.load('./tests/mean_connectome.npy')
+weighted_connectome = get_weighted_network().squeeze(0).cpu().numpy()
+# weighted_connectome = scaler.fit_transform(weighted_connectome)
 weighted_connectome = np.maximum(weighted_connectome, weighted_connectome.T)
 np.fill_diagonal(weighted_connectome, 0) # no self-connections
 
@@ -125,4 +157,6 @@ np.fill_diagonal(binary_connectome, 0) # no self-connections
 # compare_binary_clustering_coefficients(binary_connectome)
 # compare_weighted_clustering_coefficients(weighted_connectome)
 # compare_node_strength(weighted_connectome)
-compare_binary_betweenness_centrality(binary_connectome)
+# compare_binary_betweenness_centrality(binary_connectome)
+
+compare_weighted_betweenness_centrality(weighted_connectome)

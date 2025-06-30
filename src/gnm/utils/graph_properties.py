@@ -262,52 +262,6 @@ def communicability(
     return communicability_matrix
 
 
-@jaxtyped(typechecker=typechecked)
-def binary_characteristic_path_length(
-    connectome: Float[torch.Tensor, "*batch num_nodes num_nodes"], 
-    device=None
-) -> Float[torch.Tensor, "*batch"]:
-    """
-    Compute characteristic path length for each binary network in a batch.
-
-    Args:
-        connectome (Tensor): Batch of binary adjacency matrices of shape (batch, num_nodes, num_nodes)
-
-    Returns:
-        Tensor: Characteristic path length for each network in the batch, shape (batch,)
-    """
-    
-    binary_checks(connectome)
-
-    if device is None:
-        device = connectome.device
-
-    batch_size, num_nodes, _ = connectome.shape
-
-    single_identity = torch.eye(num_nodes, device=device)
-    batch_identity = single_identity.unsqueeze(0).repeat(batch_size, 1, 1)
-
-    # Start with direct connections
-    dist = connectome.clone()
-    dist[batch_identity.bool()] = 0
-
-    inf = torch.full_like(dist, float('inf'))
-    dist = torch.where(dist == 0, inf, 1.0)  # 1 where connected, inf otherwise
-    dist[batch_identity.bool()] = 0
-
-    for k in range(num_nodes):
-        dist = torch.minimum(dist, dist[:, :, k:k+1] + dist[:, k:k+1, :])
-
-    # Exclude self-distances
-    mask = ~batch_identity.bool()
-    path_lengths = dist[mask].reshape(batch_size, -1)
-
-    # Mean over all node pairs
-    characteristic_path_length = path_lengths.mean(dim=1)
-
-    return characteristic_path_length
-
-
 def binary_betweenness_centrality_nx(
     matrices: Float[torch.Tensor, "num_matrices num_nodes num_nodes"]
 ) -> Float[torch.Tensor, "num_matrices num_nodes"]:
@@ -454,6 +408,172 @@ def binary_betweenness_centrality(
         dependency += temporary_path_dependency
 
     return dependency.sum(dim=1)  # Sum over node dependencies
+
+@jaxtyped(typechecker=typechecked)
+def weighted_betweenness_centrality(
+    connectome: Float[torch.Tensor, "*batch num_nodes num_nodes"],
+    normalized: bool = True,
+    device: Optional[torch.device] = None
+) -> Float[torch.Tensor, "*batch num_nodes"]:
+    r"""Compute weighted betweenness centrality for each node in a batch of graphs.
+
+    This function calculates the betweenness centrality for graphs with weighted edges,
+    adapting Brandes' algorithm for batch processing on PyTorch tensors. The edge
+    weights are treated as distances or costs.
+
+    The algorithm consists of two main stages:
+    1.  An all-pairs shortest path calculation using a Floyd-Warshall-like algorithm
+        to find the distance and number of shortest paths between all node pairs.
+    2.  An accumulation stage that computes the betweenness centrality for each node
+        by summing the dependencies over all source-target pairs.
+
+    Args:
+        connectome:
+            A batch of weighted adjacency matrices with shape
+            [*batch, num_nodes, num_nodes]. Edge weights should be positive,
+            representing the distance or cost of traversing the edge. Non-edges
+            should be represented by 0 or infinity.
+        normalized:
+            If True (default), the betweenness values are normalized by dividing
+            by the number of possible pairs of nodes, which is `(n-1)(n-2)/2` for
+            undirected graphs and `(n-1)(n-2)` for directed graphs, where n is
+            the number of nodes.
+        device:
+            The PyTorch device to perform the computation on. If None, the device
+            of the input `connectome` is used.
+
+    Returns:
+        A tensor of betweenness centrality values for each node in each graph,
+        with shape [*batch, num_nodes].
+
+    Examples:
+        >>> import torch
+        >>> # Create a sample weighted graph (batch of 1)
+        >>> #      (1) --2-- (2)
+        >>> #     / |       /
+        >>> #    1  3      1
+        >>> #   /   |     /
+        >>> # (0) --4-- (3)
+        >>> graph = torch.tensor([[[0, 1, 2, 4],
+        ...                        [1, 0, 0, 3],
+        ...                        [2, 0, 0, 1],
+        ...                        [4, 3, 1, 0]]], dtype=torch.float32)
+        >>> bc = weighted_betweenness_centrality(graph)
+        >>> print(bc)
+        tensor([[0.5000, 0.0000, 0.5000, 1.0000]])
+
+    Notes:
+        - This implementation is computationally intensive, especially for large graphs,
+          as it involves algorithms with complexity related to O(n^3), where n is
+          the number of nodes.
+        - For the algorithm to work correctly, edge weights must be non-negative.
+    """
+
+    warn('Testing revealed mariginal discrepencies between BCT and this algorithm of ~0.005. Use with caution.')
+
+    weighted_checks(connectome)
+
+    if device is None:
+        device = connectome.device
+
+    *batch_shape, num_nodes, _ = connectome.shape
+    batch_size = torch.prod(torch.tensor(batch_shape)).item()
+    
+    # Reshape to a 2D batch for easier processing
+    connectome_2d = connectome.view(batch_size, num_nodes, num_nodes)
+
+    # --- Stage 1: All-Pairs Shortest Path (Floyd-Warshall style) ---
+    # Initialize distance matrix
+    dist = connectome_2d.clone()
+    # Non-edges (weight 0) should have infinite distance
+    dist[dist == 0] = torch.inf
+    # Distance to self is 0
+    dist.diagonal(dim1=-2, dim2=-1).fill_(0)
+
+    # Initialize sigma matrix (number of shortest paths)
+    # A value of 1 for existing edges and self-loops, 0 otherwise.
+    sigma = torch.where((connectome_2d > 0) | (torch.eye(num_nodes, device=device).bool()), 
+                        torch.ones_like(connectome_2d), 
+                        torch.zeros_like(connectome_2d))
+    sigma.diagonal(dim1=-2, dim2=-1).fill_(1)
+
+    # Floyd-Warshall algorithm to find all-pairs shortest paths and counts
+    for k in range(num_nodes):
+        # Path distances through intermediate node k
+        dist_ik = dist[:, :, k].unsqueeze(2)
+        dist_kj = dist[:, k, :].unsqueeze(1)
+        new_dist = dist_ik + dist_kj
+
+        # Number of paths through intermediate node k
+        sigma_ik = sigma[:, :, k].unsqueeze(2)
+        sigma_kj = sigma[:, k, :].unsqueeze(1)
+        new_sigma = sigma_ik * sigma_kj
+
+        # Update matrices based on new paths found
+        is_shorter = new_dist < dist
+        is_equal = torch.isclose(new_dist, dist)
+
+        # Where the new path is shorter, update distance and path count
+        dist[is_shorter] = new_dist[is_shorter]
+        sigma[is_shorter] = new_sigma[is_shorter]
+
+        # Where the new path has equal length, add to the path count
+        sigma[is_equal] += new_sigma[is_equal]
+
+    # --- Stage 2: Betweenness Centrality Accumulation ---
+    # Based on the formula: C_B(v) = sum_{s!=v!=t} (sigma_st(v) / sigma_st)
+    # where sigma_st(v) is the number of shortest paths from s to t through v.
+    # We know sigma_st(v) = sigma_sv * sigma_vt if v is on a shortest path.
+    
+    betweenness = torch.zeros(batch_size, num_nodes, device=device)
+    
+    # Avoid division by zero, replace sigma=0 with 1 (as it won't be used anyway)
+    sigma_no_zeros = torch.where(sigma == 0, torch.ones_like(sigma), sigma)
+
+    for v in range(num_nodes):
+        # Get distances and path counts relative to node v
+        dist_sv = dist[:, :, v].unsqueeze(2)
+        dist_vt = dist[:, v, :].unsqueeze(1)
+        
+        sigma_sv = sigma[:, :, v].unsqueeze(2)
+        sigma_vt = sigma[:, v, :].unsqueeze(1)
+
+        # Condition for v being on a shortest path between s and t
+        is_on_path = torch.isclose(dist, dist_sv + dist_vt)
+
+        # Number of shortest paths from s to t passing through v
+        sigma_st_v = sigma_sv * sigma_vt
+
+        # Pair dependency: sigma_st(v) / sigma_st
+        pair_dependency = sigma_st_v / sigma_no_zeros
+        
+        # Only consider dependencies where v is on the shortest path
+        dependency_v = torch.where(is_on_path, pair_dependency, torch.zeros_like(pair_dependency))
+
+        # Exclude endpoints s and t from the sum (s!=v!=t)
+        dependency_v.diagonal(dim1=-2, dim2=-1).fill_(0) # case s=t
+        dependency_v[:, v, :] = 0 # case s=v
+        dependency_v[:, :, v] = 0 # case t=v
+
+        # Sum all pair dependencies for node v
+        betweenness[:, v] = dependency_v.sum(dim=(-1, -2))
+
+    # --- Stage 3: Normalization and Final Adjustments ---
+    betweenness /= 2.0 # adjust for undirected networks
+
+    if normalized:
+        # Normalize by the number of possible pairs
+        if num_nodes > 2:
+            norm_factor = ((num_nodes - 1) * (num_nodes - 2)) / 2.0
+            
+            if norm_factor > 0:
+                betweenness /= norm_factor
+        else:
+            # For n<=2, betweenness is always 0, no normalization needed
+            betweenness.fill_(0)
+
+    # Reshape back to original batch shape
+    return betweenness.view(*batch_shape, num_nodes)
 
 
 def characteristic_path_length(
