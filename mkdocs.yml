@@ -38,9 +38,13 @@ nav:
   - User Guide: 
     - Overview: user-guide/index.md
     - Design Philosophy: user-guide/design-philosophy.md
-  - Examples scripts:
+  - Example scripts:
     - Overview: examples/index.md
     - Parameter sweep: examples/sweep_example.ipynb 
+    - Weighted Sweep: examples/weighted_sweep.ipynb
+    - Weighted increments: examples/weighted_increments.ipynb
+    - Graphing Model Performance: examples/graph_model_performance.ipynb
+    - Example Wandb Run: examples/example_wandb_run.ipynb
   - API Reference: 
     - Overview: api-reference/index.md
     - model: api-reference/model.md
