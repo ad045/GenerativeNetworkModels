@@ -43,8 +43,9 @@ nav:
     - Parameter sweep: examples/sweep_example.ipynb 
     - Weighted Sweep: examples/weighted_sweep.ipynb
     - Weighted increments: examples/weighted_increments.ipynb
-    - Graphing Model Performance: examples/graph_model_performance.ipynb
-    - Example Wandb Run: examples/example_wandb_run.ipynb
+    - Graphing model performance over time: examples/graph_model_performance.ipynb
+    - Wandb integration: examples/example_wandb_run.ipynb
+    - Saving Experiments: examples/experiment_saving_example.ipynb
   - API Reference: 
     - Overview: api-reference/index.md
     - model: api-reference/model.md
