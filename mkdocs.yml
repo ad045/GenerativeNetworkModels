@@ -35,9 +35,7 @@ extra_javascript:
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
-  - User Guide: 
-    - Overview: user-guide/index.md
-    - Design Philosophy: user-guide/design-philosophy.md
+  - Design Philosophy: user-guide/design-philosophy.md
   - Example scripts:
     - Overview: examples/index.md
     - Parameter sweep: examples/sweep_example.ipynb 
