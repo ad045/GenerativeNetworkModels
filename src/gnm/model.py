@@ -181,7 +181,7 @@ class WeightedGenerativeParameters:
 
     Attributes:
         alpha (float):
-            Learning rate ($\\alpha$) for gradient descent optimisation of weights.
+            Learning rate ($\alpha$) for gradient descent optimisation of weights.
             Controls how much weights change in response to gradients:
             larger values mean bigger steps but potential instability,
             smaller values mean more stable but slower optimisation.
@@ -258,7 +258,7 @@ class GenerativeNetworkModel:
     (through the generative rule), (c) Developmental timing (heterochronicity).
 
     **Weight Optimisation Phase (Optional):**
-    If weighted parameters are provided, the model also optimizes edge weights $W_{ij}$
+    If weighted parameters are provided, the model also optimises edge weights $W_{ij}$
     through gradient descent on a loss, $L(W)$.
 
     Attributes:
@@ -346,7 +346,7 @@ class GenerativeNetworkModel:
             ]
         ] = None,
         device: Optional[torch.device] = None,
-        verbose: Optional[bool] = False
+        verbose: Optional[bool] = False,
     ):
         r"""The initialisation process for the Generative Network Model:
 
@@ -374,7 +374,7 @@ class GenerativeNetworkModel:
                 The device (either CPU or CUDA-based GPU) responsible for running model. Leave blank for auto.
             verbose:
                 Explicitly output warnings and model fit progress. True = show outputs, False = silence outputs.
-                False by default. 
+                False by default.
 
         Raises:
             ValueError: If input matrices don't meet requirements (binary, symmetric, etc.) or
@@ -397,10 +397,14 @@ class GenerativeNetworkModel:
             self.vprint("Number of nodes unspecified. Extracting from distance matrix.")
             self.num_nodes = distance_matrix.shape[-1]
         elif seed_adjacency_matrix is not None:
-            self.vprint("Number of nodes unspecified. Extracting from seed adjacency matrix.")
+            self.vprint(
+                "Number of nodes unspecified. Extracting from seed adjacency matrix."
+            )
             self.num_nodes = seed_adjacency_matrix.shape[-1]
         elif seed_weight_matrix is not None:
-            self.vprint("Number of nodes unspecified. Extracting from seed weight matrix.")
+            self.vprint(
+                "Number of nodes unspecified. Extracting from seed weight matrix."
+            )
             self.num_nodes = seed_weight_matrix.shape[-1]
         else:
             raise ValueError(
@@ -564,7 +568,7 @@ class GenerativeNetworkModel:
             seed_weight_matrix:
                 A seed weight matrix to initialise $W_{ij}$.
                 If this is not provided, then the weight matrix is initialised to the
-                current adjacency matrix, $W_{ij} \gest A_{ij}$.
+                current adjacency matrix, $W_{ij} \gets A_{ij}$.
                 If provided, the matrix must be symmetric, non-negative, and have support
                 only where the adjacency matrix is non-zero.
                 Defaults to None.

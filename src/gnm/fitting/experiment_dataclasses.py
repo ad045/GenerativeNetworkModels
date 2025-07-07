@@ -64,7 +64,7 @@ class BinarySweepParameters:
 
         generative_rule (List[GenerativeRule]):
             Generative rules to use for network creation. These define the rule by which the
-            preferential attachment factor is compuetd.
+            preferential attachment factor is computed.
 
         num_iterations (List[int]):
             Numbers of iterations to run the generative process for each parameter set.

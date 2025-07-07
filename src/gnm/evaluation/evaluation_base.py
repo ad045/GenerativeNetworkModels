@@ -270,7 +270,7 @@ class CorrelationCriterion(EvaluationCriterion, ABC):
 
     This class implements network comparison using correlation coefficients between
     spatial patterns of network properties (*e.g.*, node degree, clustering coefficients).
-    Higher correlation indicates greater similarity in the spatial organization of
+    Higher correlation indicates greater similarity in the spatial organisation of
     network properties.
 
     Subclasses must implement the `_get_graph_statistics` method to define the specific

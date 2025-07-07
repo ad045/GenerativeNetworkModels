@@ -7,6 +7,7 @@ The aim of this project was to make GNMs more accessable to the wider research c
 
 ## Table of Contents
 - [Getting Started](getting-started.md)
+- [Understanding Geneartive Network Models](understanding-gnms/index.md)
 - [User Guide](user-guide/index.md)
 - [API Reference](api-reference/index.md)
     - [model](api-reference/model.md)

@@ -16,7 +16,7 @@ from gnm.evaluation import (
     BinaryEvaluationCriterion,
     WeightedEvaluationCriterion,
     CompositeCriterion,
-    EvaluationCriterion
+    EvaluationCriterion,
 )
 from typing import Iterator
 import torch
@@ -42,21 +42,18 @@ from gnm import (
     GenerativeNetworkModel,
 )
 
-from .experiment_saving import (
-    ExperimentEvaluation
-)
+from .experiment_saving import ExperimentEvaluation
 
 from gnm.utils import binary_checks, weighted_checks
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
 @jaxtyped(typechecker=typechecked)
 def perform_run(
     run_config: RunConfig,
     binary_evaluations: Optional[
-        List[
-            Union[BinaryEvaluationCriterion, CompositeCriterion]
-            ]
+        List[Union[BinaryEvaluationCriterion, CompositeCriterion]]
     ] = None,
     weighted_evaluations: Optional[
         List[
@@ -157,7 +154,7 @@ def perform_run(
         weighted_parameters=run_config.weighted_parameters,
         seed_weight_matrix=run_config.seed_weight_matrix,
         device=device,
-        verbose=False
+        verbose=False,
     )
 
     added_edges, adjacency_snapshots, weight_snapshots = model.run_model(
@@ -269,12 +266,18 @@ def perform_sweep(
         method:
             The method to use for the sweep. Options are 'bayesian' or 'grid'.
             Defaults to 'grid'.
-            - 'bayesian': Uses Bayesian optimization to explore the parameter space (Relies on Wandb).
+            - 'bayesian': Uses the Bayesian optimisation method within Weights and Biases to explore the parameter space.
             - 'grid': Performs a grid search over the parameter space.
 
         num_bayesian_runs:
             The number of runs to perform for the Bayesian sweep. Defaults to 30.
             This is only used if method is 'bayesian'.
+
+        metric_to_optimise:
+            Which evaluation metric to optimise for the Bayesian sweep.
+            This is only used if method is 'bayesian'.
+            If unspecified, the first binary evaluation will be used if available,
+            otherwise the first weighted evaluation will be used.
 
     Returns:
         A list of Experiment objects, one for each parameter combination in the sweep.
@@ -324,7 +327,12 @@ def perform_sweep(
     def perform_grid_sweep():
         run_results = []
         run_times = []
-        for run_config in tqdm(sweep_config, desc='Configuration Iterations', total=config_count, disable=not verbose):
+        for run_config in tqdm(
+            sweep_config,
+            desc="Configuration Iterations",
+            total=config_count,
+            disable=not verbose,
+        ):
             start_time = time.perf_counter()
             experiment = perform_run(
                 run_config=run_config,
@@ -347,12 +355,12 @@ def perform_sweep(
                 exp = ExperimentEvaluation(save=False)
                 experiment_data_config = exp._save_experiment(experiment)
                 wandb.init(project=project_name, config=experiment_data_config)
-                wandb.log(experiment_data_config)  
+                wandb.log(experiment_data_config)
                 wandb.finish()
 
             gc.collect()
             torch.cuda.empty_cache()
-        
+
         return run_results, run_times
 
     def wandb_agent_single_run():
@@ -385,12 +393,17 @@ def perform_sweep(
 
             experiment_data_config = exp._save_experiment(experiment)
             wandb.log(experiment_data_config)
-    
+
     def perform_bayesian_sweep(sweep_config_dict):
         sweep_id = wandb.sweep(sweep=sweep_config_dict, project=project_name)
 
         start_time = time.perf_counter()
-        wandb.agent(sweep_id, function=wandb_agent_single_run, project=project_name, count=num_bayesian_runs)
+        wandb.agent(
+            sweep_id,
+            function=wandb_agent_single_run,
+            project=project_name,
+            count=num_bayesian_runs,
+        )
         end_time = time.perf_counter()
 
         run_time = [end_time - start_time]
@@ -400,24 +413,25 @@ def perform_sweep(
 
         return run_time
 
-    
-    print(f'Using device: {device} for GNM simulations')
+    print(f"Using device: {device} for GNM simulations")
     if wandb_logging:
-        # for experiment logging if wandb is used - ignore if not 
+        # for experiment logging if wandb is used - ignore if not
         exp = ExperimentEvaluation(save=False)
-        print('Logging experiment to wandb - login may be required.')
+        print("Logging experiment to wandb - login may be required.")
         wandb.login()
-        project_name = input('Enter wandb project name: ')
+        project_name = input("Enter wandb project name: ")
 
-    if method == 'bayesian':
+    if method == "bayesian":
         if metric_to_optimise is None:
             if len(binary_evaluations) != 0:
                 metric_to_optimise = binary_evaluations[0]
             elif len(weighted_evaluations) != 0:
                 metric_to_optimise = weighted_evaluations[0]
             else:
-                raise ValueError("No evaluation criteria provided for Bayesian optimisation.")
-            
+                raise ValueError(
+                    "No evaluation criteria provided for Bayesian optimisation."
+                )
+
         if isinstance(metric_to_optimise, EvaluationCriterion):
             metric_to_optimise = str(metric_to_optimise)
 
@@ -429,12 +443,12 @@ def perform_sweep(
         gamma_max = float(sweep_config.binary_sweep_parameters.gamma.max().item())
 
         binary_sweep_configuration = {
-        "name": project_name,
-        "method": "bayes",
-        "metric": {"goal": "minimize", "name": metric_to_optimise},
-        "parameters": {
-            'eta': {"min": eta_min, "max": eta_max},
-            'gamma': {"min": gamma_min, "max": gamma_max},
+            "name": project_name,
+            "method": "bayes",
+            "metric": {"goal": "minimize", "name": metric_to_optimise},
+            "parameters": {
+                "eta": {"min": eta_min, "max": eta_max},
+                "gamma": {"min": gamma_min, "max": gamma_max},
             },
         }
 
@@ -447,8 +461,8 @@ def perform_sweep(
 
     if verbose:
         avg_time = sum(run_times) / len(run_times)
-        print(f'Average time per run: {avg_time:.2f} seconds')
-        print(f'Total time for sweep: {sum(run_times):.2f} seconds')
+        print(f"Average time per run: {avg_time:.2f} seconds")
+        print(f"Total time for sweep: {sum(run_times):.2f} seconds")
 
     return run_results
 
