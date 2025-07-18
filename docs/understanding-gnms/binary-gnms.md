@@ -12,7 +12,7 @@ The [binary generative network model](glossary.md#binary-generative-network-mode
 
 The core of the GNM is very simple. The model begins with a seed [adjacency matrix](glossary.md#adjacency-matrix-a), $A_{ij}$, which can be either empty (zeros everywhere) or already contain some connections. At each step of the algorithm, we compute a likelihood that each currently unconnected pair of nodes will form a connection. We then sample a pair of nodes randomly according to this distribution. An edge is then added between the sampled nodes. This cycle then repeats, with edges being added one-by-one until one-by-one until a desired total number of connections is reached. Importantly, at each step the current pattern of connectivity present within the network influences the likelihood of connections between nodes, allowing for complex feedback loops. 
 
-[FIGURE 3 ABOUT HERE]
+![Figure 3](figures-png/fig3.png)
 
 Within a GNM, the [likelihood of a connection forming at each step](#computing-wiring-probabilities) depends on both the distance and affinity between the nodes. Distance captures spatial constraints on wiring, and in general the further two nodes are physically separated from each other the less likely a connection is to form between them. The influence of distance on wiring probabilities is controlled through a parameter $\eta$. Affinity captures non-spatial topological factors that influence connection formation. As discussed [below](#computing-the-affinity-matrix), there are many different methods for computing the [affinity matrix](glossary.md#affinity-matrix-k), denoted $K$, each giving rise to different growth dynamics and final network structures. The influence of affinity on wiring probabilities is controlled through a parameter $\gamma$. 
 
@@ -33,7 +33,7 @@ The distance matrix $D$ measures the physical separation in space between nodes;
 
 To combine the geometric information contained in the [distance transform](glossary.md#distance-transform), $d_{ij}$, with the non-geometric, topological information contained in the [affinity transform](glossary.md#affinity-transform), $k_{ij}$, we multiply these together to produce unnormalised wiring probabilities, $$ \tilde{P}_{ij} = d_{ij} \times k_{ij}. $$ Several important constraints are then applied to these unnormalised probabilities. Existing [edges](glossary.md#edge) have their probabilities set to zero, since we can only add new edges between nodes not already connected. This can be accomplished by multiplying the unnormalised probabilities by $(1 - A_{ij})$, which is $0$ when $i$ and $j$ are adjacent ($A_{ij} = 1$) and $1$ when they are not currently connected ($A_{ij} = 0$). Since nodes cannot form edges to themselves (*i.e.*, self-connections are prohibited), we set the diagonal terms to $0$, $\tilde{P}_{ii} = 0$. Finally, we normalised the probabilities by dividing by their sum to ensure the sum of the normalised probabilities is $1$. 
 
-[FIGURE 2 ABOUT HERE]
+![Figure 2](figures-png/fig2.png)
 
 After sampling from the normalised probabilities and adding the selected connection to the [network](glossary.md#network), the process iterates. The [affinity matrix](glossary.md#affinity-matrix-k) is recomputed based on the updated [adjacency matrix](glossary.md#adjacency-matrix-a), new unnormalised and normalised [wiring probabilities](glossary.md#wiring-probabilities-p_ij) are calculated, and sampling continues. This iteration continues until the desired number of [edges](glossary.md#edge) is reached.
 

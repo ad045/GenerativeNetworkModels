@@ -22,7 +22,7 @@ To determine [structural connectivity](glossary.md#structural-connectivity), it 
 
 Reconstructions of [structural connectivity](glossary.md#structural-connectivity) data are typically then post-processed. Data can be combined across multiple subjects or scanning sessions to create robust group-level connectivity estimates called a consensus network. Thresholding removes weak connections that may represent noise, using either absolute thresholds (removing connections below a fixed strength) or relative thresholds (keeping only the strongest connections). By default the connecivity thereby obtained will be [weighted](glossary.md#weight-matrix), meaning that strenghts are assigned to each edge in accordance with the estimated size of the white matter tract between those regions. Binarisation can convert this into a [unweighted](glossary.md#adjacency-matrix) network by ignoring strength estimates, and setting all remaining connections to have a value of $1$, and all absent connections a value of $0$. 
 
-[FIGURE 1 ABOUT HERE]
+![Figure 1](figures-png/fig1.png)
 
 ## Representing Networks
 
