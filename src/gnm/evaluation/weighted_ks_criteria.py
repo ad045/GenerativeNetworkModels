@@ -45,7 +45,7 @@ class WeightedNodeStrengthKS(KSCriterion, WeightedEvaluationCriterion):
     """
 
     @jaxtyped(typechecker=typechecked)
-    def __init__(self, normalise: Optional[bool] = True):
+    def __init__(self, normalise: Optional[bool] = True, device=None):
         r"""
         Args:
             normalise:
@@ -115,7 +115,7 @@ class WeightedBetweennessKS(KSCriterion, WeightedEvaluationCriterion):
     """
 
     @jaxtyped(typechecker=typechecked)
-    def __init__(self, normalise: Optional[bool] = True):
+    def __init__(self, normalise: Optional[bool] = True, device=None):
         """
         Args:
             normalise: If True, normalise the weights of the network by the maximum weight in the network. Defaults to True.
@@ -188,7 +188,7 @@ class WeightedClusteringKS(KSCriterion, WeightedEvaluationCriterion):
         - [`evaluation_base.WeightedEvaluationCriterion`][gnm.evaluation.evaluation_base.WeightedEvaluationCriterion]: The base class for weighted criteria, from which this class inherits.
     """
 
-    def __init__(self):
+    def __init__(self, device=None):
         KSCriterion.__init__(self)
         WeightedEvaluationCriterion.__init__(self)
 

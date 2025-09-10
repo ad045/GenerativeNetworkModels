@@ -325,7 +325,7 @@ class RunConfig:
         ]
     ] = None
 
-    def to_device(self, device: Union[torch.device, str]):
+    def to_device(self, device: Union[torch.device, str], device=None):
         r"""Moves all tensors in the run configuration to a specified device.
 
         Args:
@@ -577,7 +577,7 @@ class EvaluationResults:
         str, Float[torch.Tensor, "num_real_weighted_networks num_simulations"]
     ]
 
-    def to_device(self, device: Union[torch.device, str]):
+    def to_device(self, device: Union[torch.device, str], device=None):
         r"""Moves the evalution results to a specified device.
 
         Args:
@@ -662,7 +662,7 @@ class RunHistory:
         Float[torch.Tensor, "num_weight_updates num_simulations num_nodes num_nodes"]
     ]
 
-    def to_device(self, device: Union[torch.device, str]):
+    def to_device(self, device: Union[torch.device, str], device=None):
         r"""Moves the run history to a specified device.
 
         Args:
@@ -740,7 +740,7 @@ class Experiment:
     model: Optional[GenerativeNetworkModel] = None
     run_history: Optional[RunHistory] = None
 
-    def to_device(self, device: Union[torch.device, str]):
+    def to_device(self, device: Union[torch.device, str], device=None):
         r"""Move all tensors in the experiment, including the model, to a specified device.
 
         Args:

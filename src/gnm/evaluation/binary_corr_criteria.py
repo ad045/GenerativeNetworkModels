@@ -45,7 +45,7 @@ class DegreeCorrelation(CorrelationCriterion, BinaryEvaluationCriterion):
         - [`evaluation.BinaryEvaluationCriterion`][gnm.evaluation.BinaryEvaluationCriterion]: The base class for binary evaluation criteria, from which this class inherits.
     """
 
-    def __init__(self, smoothing_matrix: Float[torch.Tensor, "num_nodes num_nodes"]):
+    def __init__(self, smoothing_matrix: Float[torch.Tensor, "num_nodes num_nodes"], device=None):
         r"""
         Args:
             smoothing_matrix:
@@ -104,7 +104,7 @@ class ClusteringCorrelation(CorrelationCriterion, BinaryEvaluationCriterion):
         - [`evaluation.BinaryEvaluationCriterion`][gnm.evaluation.BinaryEvaluationCriterion]: Base class for binary evaluation criteria, from which this class inherits.
     """
 
-    def __init__(self, smoothing_matrix: Float[torch.Tensor, "num_nodes num_nodes"]):
+    def __init__(self, smoothing_matrix: Float[torch.Tensor, "num_nodes num_nodes"], device=None):
         r"""
         Args:
             smoothing_matrix:
@@ -164,7 +164,7 @@ class BetweennessCorrelation(CorrelationCriterion, BinaryEvaluationCriterion):
         - [`evaluation.BinaryEvaluationCriterion`][gnm.evaluation.BinaryEvaluationCriterion]: Base class for binary evaluation criteria, from which this class inherits.
     """
 
-    def __init__(self, smoothing_matrix: Float[torch.Tensor, "num_nodes num_nodes"]):
+    def __init__(self, smoothing_matrix: Float[torch.Tensor, "num_nodes num_nodes"], device=None):
         r"""
         Args:
             smoothing_matrix:

@@ -1,3 +1,4 @@
+from ._device import get_device
 r"""Graph theory metrics for analyzing network properties.
 
 This module provides various metrics from graph theory for characterising network
@@ -470,7 +471,7 @@ def binary_betweenness_centrality_nx(
         >>> import torch
         >>> from gnm.utils import binary_betweenness_centrality
         >>> from gnm import defaults
-        >>> device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        >>> device = get_device()
         >>> binary_connectome = defaults.get_binary_network(device=DEVICE)
         >>> betweenness = binary_betweenness_centrality(binary_connectome)
         >>> betweenness.shape
@@ -526,7 +527,7 @@ def binary_betweenness_centrality(
         >>> import torch
         >>> from gnm.utils import binary_betweenness_centrality
         >>> from gnm import defaults
-        >>> device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        >>> device = get_device()
         >>> binary_connectome = defaults.get_binary_network(device=device)
         >>> betweenness = binary_betweenness_centrality(binary_connectome)
         >>> betweenness.shape
@@ -730,7 +731,7 @@ def binary_small_worldness(
     adjacency_matrices: Float[torch.Tensor, "*batch num_nodes num_nodes"],
     num_random_networks: int = 100,
     seed: Optional[int] = None,
-):
+, device=None):
     r"""Compute the (binary) small-worldness for each network in a batch.
 
     Small-worldness quantifies the degree to which a network exhibits small-world properties,
@@ -761,7 +762,7 @@ def binary_small_worldness(
         >>> import torch
         >>> from gnm.utils import binary_small_worldness
         >>> from gnm import defaults
-        >>> device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        >>> device = get_device()
         >>> binary_connectome = defaults.get_binary_network(device=DEVICE)
         >>> small_worldness = binary_small_worldness(binary_connectome)
     """
@@ -814,7 +815,7 @@ def weighted_small_worldness(
     num_random_networks: int = 100,
     invert_weights: bool = False,
     seed: Optional[int] = None,
-):
+, device=None):
     r"""Compute the (weighted) small-worldness for each network in a batch.
 
     Small-worldness quantifies the degree to which a network exhibits small-world properties,

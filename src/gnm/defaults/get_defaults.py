@@ -1,3 +1,4 @@
+from ._device import get_device
 r"""Default data and resources for generative network models.
 
 This subpackage provides access to pre-packaged datasets that can be used
@@ -28,13 +29,13 @@ from typeguard import typechecked
 
 from gnm.utils import binary_checks, weighted_checks
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = get_device()
 
 
 BASE_PATH = os.path.dirname(__file__)
 
 
-def display_available_defaults():
+def display_available_defaults(device=None):
     r"""Print all available default datasets that can be loaded.
 
     This function prints a formatted list of all available default datasets organized
@@ -127,8 +128,7 @@ def get_distance_matrix(
     if name is None:
         name = "AAL_DISTANCES"
 
-    distance_matrix = torch.load(
-        os.path.join(BASE_PATH, f"distance_matrices/{name.split('.')[0].upper()}.pt"),
+    distance_matrix = torch.load(os.path.join(BASE_PATH, f"distance_matrices/{name.split('.', map_location=get_device())[0].upper()}.pt"),
         map_location=device,
         weights_only=True,
     )
@@ -178,8 +178,7 @@ def get_coordinates(
     if name is None:
         name = "AAL_COORDINATES"
 
-    return torch.load(
-        os.path.join(BASE_PATH, f"coordinates/{name.split('.')[0].upper()}.pt"),
+    return torch.load(os.path.join(BASE_PATH, f"coordinates/{name.split('.', map_location=get_device())[0].upper()}.pt"),
         map_location=device,
         weights_only=True,
     )
@@ -227,8 +226,7 @@ def get_binary_network(
     if name is None:
         name = "CALM_BINARY_CONSENSUS"
 
-    binary_networks = torch.load(
-        os.path.join(BASE_PATH, f"binary_networks/{name.split('.')[0].upper()}.pt"),
+    binary_networks = torch.load(os.path.join(BASE_PATH, f"binary_networks/{name.split('.', map_location=get_device())[0].upper()}.pt"),
         map_location=device,
         weights_only=True,
     )
@@ -280,8 +278,7 @@ def get_weighted_network(
     if name is None:
         name = "CALM_WEIGHTED_CONSENSUS"
 
-    weighted_networks = torch.load(
-        os.path.join(BASE_PATH, f"weighted_networks/{name.split('.')[0].upper()}.pt"),
+    weighted_networks = torch.load(os.path.join(BASE_PATH, f"weighted_networks/{name.split('.', map_location=get_device())[0].upper()}.pt"),
         map_location=device,
         weights_only=True,
     )

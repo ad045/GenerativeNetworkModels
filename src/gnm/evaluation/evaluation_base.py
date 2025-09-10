@@ -1,3 +1,4 @@
+from ._device import get_device
 r"""Base classes for network evaluation criteria.
 
 This module defines the abstract base classes and common functionality for
@@ -13,7 +14,7 @@ from gnm.utils import ks_statistic
 
 from gnm.utils import binary_checks, weighted_checks
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = get_device()
 
 
 class EvaluationCriterion(ABC):
@@ -36,7 +37,7 @@ class EvaluationCriterion(ABC):
         - [`fitting.optimise_evaluation`][gnm.fitting.optimise_evaluation]: Function to optimise model parameters using an evaluation.
     """
 
-    def __init__(self, device: torch.device = None):
+    def __init__(self, device: torch.device = None, device=None):
         r"""
         Args:
             device:
@@ -82,7 +83,7 @@ class EvaluationCriterion(ABC):
     @jaxtyped(typechecker=typechecked)
     def _pre_call(
         self, matrices: Float[torch.Tensor, "num_network num_nodes num_nodes"]
-    ):
+    , device=None):
         r"""Perform validation checks on input matrices.
 
         This abstract method should be implemented by subclasses to ensure that input
@@ -136,7 +137,7 @@ class BinaryEvaluationCriterion(EvaluationCriterion, ABC):
         - [`evaluation.WeightedEvaluationCriterion`][gnm.evaluation.WeightedEvaluationCriterion]: Base class for weighted network evaluations.
     """
 
-    def __init__(self):
+    def __init__(self, device=None):
         r"""The initialisation method sets the accepts attribute to 'binary' to indicate that this criterion
         works with binary networks.
         """
@@ -145,7 +146,7 @@ class BinaryEvaluationCriterion(EvaluationCriterion, ABC):
     @jaxtyped(typechecker=typechecked)
     def _pre_call(
         self, matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"]
-    ):
+    , device=None):
         r"""Perform validation checks on binary matrices.
 
         Validates that the input matrices contain only binary values (0 or 1),
@@ -172,7 +173,7 @@ class WeightedEvaluationCriterion(EvaluationCriterion, ABC):
         - [`evaluation.BinaryEvaluationCriterion`][gnm.evaluation.BinaryEvaluationCriterion]: Base class for binary network evaluations.
     """
 
-    def __init__(self):
+    def __init__(self, device=None):
         r"""The initialisation method sets the accepts attribute to 'weighted' to indicate that this criterion
         works with weighted networks.
         """
@@ -181,7 +182,7 @@ class WeightedEvaluationCriterion(EvaluationCriterion, ABC):
     @jaxtyped(typechecker=typechecked)
     def _pre_call(
         self, matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"]
-    ):
+    , device=None):
         r"""Perform validation checks on weighted matrices.
 
         Validates that the input matrices contain only non-negative values,
@@ -287,7 +288,7 @@ class CorrelationCriterion(EvaluationCriterion, ABC):
         - [`evaluation.BetweennessCorrelation`][gnm.evaluation.BetweennessCorrelation]: Correlation of betweenness centrality patterns
     """
 
-    def __init__(self, smoothing_matrix: Float[torch.Tensor, "num_nodes num_nodes"]):
+    def __init__(self, smoothing_matrix: Float[torch.Tensor, "num_nodes num_nodes"], device=None):
         r"""
         Args:
             smoothing_matrix:
@@ -399,7 +400,7 @@ class CompositeCriterion(EvaluationCriterion, ABC):
         - [`evaluation.WeightedSumCriteria`][gnm.evaluation.WeightedSumCriteria]: Takes a weighted sum of all criteria
     """
 
-    def __init__(self, criteria: list[EvaluationCriterion]):
+    def __init__(self, criteria: list[EvaluationCriterion], device=None):
         r"""
         Args:
             criteria:
@@ -419,7 +420,7 @@ class CompositeCriterion(EvaluationCriterion, ABC):
     @jaxtyped(typechecker=typechecked)
     def _pre_call(
         self, matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"]
-    ):
+    , device=None):
         r"""Perform validation checks using the first criterion in the list.
 
         Delegates validation to the first criterion in the list, assuming all

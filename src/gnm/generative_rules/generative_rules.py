@@ -37,7 +37,7 @@ class GenerativeRule(ABC):
     @jaxtyped(typechecker=typechecked)
     def input_checks(
         self, adjacency_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
-    ):
+    , device=None):
         r"""Validate input adjacency matrices.
 
         Performs checks to ensure that the input adjacency matrices are binary,
@@ -65,7 +65,7 @@ class GenerativeRule(ABC):
     @jaxtyped(typechecker=typechecked)
     def output_processing(
         self, affinity_matrix: Float[torch.Tensor, "... num_nodes num_nodes"]
-    ):
+    , device=None):
         r"""Process the output affinity matrix.
 
         Ensures that the affinity matrix has no self-connections and passes
@@ -174,7 +174,7 @@ class MatchingIndex(GenerativeRule):
         - [`generative_rules.Neighbours`][gnm.generative_rules.Neighbours]: A simpler neighborhood-based rule
     """
 
-    def __init__(self, divisor: str = "mean"):
+    def __init__(self, divisor: str = "mean", device=None):
         r"""
         Args:
             divisor:

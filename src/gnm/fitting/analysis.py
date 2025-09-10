@@ -185,7 +185,7 @@ class QuantileAggregator(Aggregator):
         - [`fitting.optimise_evaluation`][gnm.fitting.optimise_evaluation]: Uses aggregators to find optimal experiments
     """
 
-    def __init__(self, quantile: float = 0.5):
+    def __init__(self, quantile: float = 0.5, device=None):
         r"""
         Args:
             quantile:

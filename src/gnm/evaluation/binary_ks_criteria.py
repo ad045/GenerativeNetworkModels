@@ -43,7 +43,7 @@ class DegreeKS(KSCriterion, BinaryEvaluationCriterion):
         - [`evaluation.KSCriterion`][gnm.evaluation.KSCriterion]: Base class for KS criteria, from which this class inherits.
     """
 
-    def __init__(self):
+    def __init__(self, device=None):
         KSCriterion.__init__(self)
         BinaryEvaluationCriterion.__init__(self)
 
@@ -93,7 +93,7 @@ class ClusteringKS(KSCriterion, BinaryEvaluationCriterion):
         - [`utils.binary_clustering_coefficients`][gnm.utils.binary_clustering_coefficients]: Function to compute clustering coefficients for binary networks, which this class uses.
     """
 
-    def __init__(self):
+    def __init__(self, device=None):
         KSCriterion.__init__(self)
         BinaryEvaluationCriterion.__init__(self)
 
@@ -143,7 +143,7 @@ class BetweennessKS(KSCriterion, BinaryEvaluationCriterion):
         - [`utils.binary_betweenness_centrality`][gnm.utils.binary_betweenness_centrality]: Function used to calculate betweenness centrality.
     """
 
-    def __init__(self):
+    def __init__(self, device=None):
         KSCriterion.__init__(self)
         BinaryEvaluationCriterion.__init__(self)
 
@@ -191,7 +191,7 @@ class EdgeLengthKS(BinaryEvaluationCriterion):
         - [`evaluation.BinaryEvaluationCriterion`][gnm.evaluation.BinaryEvaluationCriterion]: Base class for binary evaluation criteria, from which this class inherits.
     """
 
-    def __init__(self, distance_matrix: Float[torch.Tensor, "num_nodes num_nodes"]):
+    def __init__(self, distance_matrix: Float[torch.Tensor, "num_nodes num_nodes"], device=None):
         r"""
         Args:
             distance_matrix:

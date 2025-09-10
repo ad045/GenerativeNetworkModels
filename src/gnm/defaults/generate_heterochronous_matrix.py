@@ -11,7 +11,7 @@ def generate_heterochronous_matrix(
     mseed=0,
     cumulative=False,
     local=True,
-):
+    device=None):
     """
     Generate heterochronous matrices based on a dynamic starting node.
 

@@ -1,3 +1,4 @@
+from ._device import get_device
 r"""Composite evaluation criteria for combining multiple network comparison methods.
 
 This module provides classes for combining multiple evaluation criteria into a single
@@ -12,7 +13,7 @@ from typeguard import typechecked
 
 from .evaluation_base import CompositeCriterion, EvaluationCriterion
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = get_device()
 
 
 class MaxCriteria(CompositeCriterion):
@@ -201,7 +202,7 @@ class WeightedSumCriteria(CompositeCriterion):
         - [`evaluation.MeanCriteria`][gnm.evaluation.MeanCriteria]: For averaging multiple criteria.
     """
 
-    def __init__(self, criteria: list[EvaluationCriterion], weights: list[float]):
+    def __init__(self, criteria: list[EvaluationCriterion], weights: list[float], device=None):
         r"""
         Args:
             criteria:

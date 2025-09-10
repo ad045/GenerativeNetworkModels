@@ -7,7 +7,7 @@ from .evaluation_base import EvaluationCriterion
 
 
 class WassersteinDistance:
-    def __init__(self, criterion: EvaluationCriterion, p: float = 1.0):
+    def __init__(self, criterion: EvaluationCriterion, p: float = 1.0, device=None):
         self.criterion = criterion
         self.p = p
 

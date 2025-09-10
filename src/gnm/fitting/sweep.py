@@ -334,7 +334,7 @@ def perform_sweep(
             disable=not verbose,
         ):
             start_time = time.perf_counter()
-            experiment = perform_run(
+            experiment, path_output_csv_todo = perform_run(
                 run_config=run_config,
                 binary_evaluations=binary_evaluations,
                 weighted_evaluations=weighted_evaluations,
@@ -371,7 +371,7 @@ def perform_sweep(
             run_config.eta = torch.Tensor([config.eta])
             run_config.gamma = torch.Tensor([config.gamma])
 
-            experiment = perform_run(
+            experiment, path_output_csv_todo = perform_run(
                 run_config=run_config,
                 binary_evaluations=binary_evaluations,
                 weighted_evaluations=weighted_evaluations,

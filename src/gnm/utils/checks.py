@@ -11,7 +11,7 @@ import torch
 
 
 @jaxtyped(typechecker=typechecked)
-def binary_checks(matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"]):
+def binary_checks(matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"], device=None):
     r"""Check that matrices satisfy binary network constraints.
 
     Validates that the provided adjacency matrices conform to the expected properties
@@ -65,7 +65,7 @@ def binary_checks(matrices: Float[torch.Tensor, "num_networks num_nodes num_node
 
 
 @jaxtyped(typechecker=typechecked)
-def weighted_checks(matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"]):
+def weighted_checks(matrices: Float[torch.Tensor, "num_networks num_nodes num_nodes"], device=None):
     r"""Check that matrices satisfy weighted network constraints.
 
     Validates that the provided weight matrices conform to the expected properties
