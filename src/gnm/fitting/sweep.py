@@ -30,6 +30,8 @@ from gnm import fitting, generative_rules, weight_criteria
 
 import wandb
 
+from pathlib import Path
+
 from .experiment_dataclasses import (
     Experiment,
     EvaluationResults,
@@ -42,9 +44,17 @@ from gnm import (
     GenerativeNetworkModel,
 )
 
+import numpy as np 
+
 from .experiment_saving import ExperimentEvaluation
 
 from gnm.utils import binary_checks, weighted_checks
+
+import pandas as pd
+from pathlib import Path
+from src.structural_analysis.graph_measures import analyze_connectomes
+from src.ESNs.test_memory_capacity_weighted import evaluate_memory_capacity_from_connectome
+
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -72,6 +82,8 @@ def perform_run(
     save_model: bool = True,
     save_run_history: bool = True,
     device: Optional[Union[torch.device, str]] = None,
+    elaborate_analysis: bool = False,
+    output_dir: Optional[Path] = None,
 ) -> Experiment:
     r"""Perform a single run of the generative network model.
 
@@ -175,6 +187,48 @@ def perform_run(
         real_weighted_matrices=real_weighted_matrices,
         device=device,
     )
+    
+    if elaborate_analysis:
+        networks_np = model.adjacency_matrix.cpu().numpy()
+        
+        # 1. Save generated networks
+        if output_dir:
+            params = run_config.binary_parameters
+            rule_name = params.generative_rule.__class__.__name__
+            # Create a unique, descriptive filename
+            filename = (
+                f"net_eta{params.eta.item():.3f}_gamma{params.gamma.item():.3f}_"
+                f"rule{rule_name}.npy"
+            )
+            save_path = output_dir / "generated_networks" / filename
+            save_path.parent.mkdir(parents=True, exist_ok=True)
+            np.save(save_path, networks_np)
+
+        # 2. Calculate graph measures
+        graph_measures_list = analyze_connectomes(
+            connectomes=networks_np,
+            distance_matrix=run_config.distance_matrix.cpu().numpy()
+        )
+        avg_graph_measures = pd.DataFrame(graph_measures_list).mean().to_dict()
+
+        # 3. Calculate Memory Capacity
+        mc_lags_to_calc = [1, 2, 5, 10, 30, 50]
+        esn_results_list = []
+        for network in networks_np:
+            # Use a minimal set of ESN params for speed
+            esn_res = evaluate_memory_capacity_from_connectome(
+                connectome=network,
+                mc_lengths=mc_lags_to_calc,
+                train_len=1000,
+                n_runs=5
+            )
+            esn_results_list.append(esn_res)
+        avg_esn_measures = pd.DataFrame(esn_results_list).mean().to_dict()
+
+        # 4. Combine results and attach to the experiment object
+        # NOTE: This assumes you can add 'elaborate_results' to your EvaluationResults class
+        evaluation_results.elaborate_results = {**avg_graph_measures, **avg_esn_measures}
+
 
     experiment = Experiment(
         run_config=run_config,
@@ -216,6 +270,8 @@ def perform_sweep(
     device: Optional[Union[torch.device, str]] = None,
     verbose: Optional[bool] = False,
     wandb_logging: Optional[bool] = False,
+    elaborate_analysis: bool = False,
+    output_dir: Optional[Path] = None,
     method: Literal["bayesian", "grid"] = "grid",
     num_bayesian_runs: Optional[int] = 30,
     metric_to_optimise: Optional[Union[str, EvaluationCriterion]] = None,
@@ -327,6 +383,7 @@ def perform_sweep(
     def perform_grid_sweep():
         run_results = []
         run_times = []
+        
         for run_config in tqdm(
             sweep_config,
             desc="Configuration Iterations",
@@ -343,6 +400,8 @@ def perform_sweep(
                 save_model=save_model,
                 save_run_history=save_run_history,
                 device=device,
+                elaborate_analysis=elaborate_analysis,
+                output_dir=output_dir,
             )
 
             end_time = time.perf_counter()
