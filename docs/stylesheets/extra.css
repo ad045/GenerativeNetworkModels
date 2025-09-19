@@ -1,0 +1,201 @@
+.table-container {
+    border-radius: 12px;
+    margin: 2em 0;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    background-color: var(--md-code-bg-color);
+    border: 1px solid var(--md-primary-fg-color);
+}
+
+.table-banner {
+    background-color: var(--md-primary-fg-color);
+    color: var(--md-primary-bg-color);
+    padding: 0.2em 1.5em;
+    margin: 0;
+    font-weight: bold;
+    font-size: 1.1em;
+    text-align: center;
+    letter-spacing: 0.5px;
+}
+
+.gnm-table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 0;
+    font-family: var(--md-text-font-family);
+    background-color: var(--md-code-bg-color);
+}
+
+.gnm-table th {
+    background-color: var(--md-default-fg-color--lightest);
+    font-weight: bold;
+    text-align: center;
+    padding: 12px 8px;
+    border: 1px solid var(--md-default-fg-color--lighter);
+    color: var(--md-default-fg-color);
+    border-bottom: 3px double var(--md-default-fg-color--lighter);
+}
+
+.gnm-table td {
+    padding: 12px 8px;
+    text-align: left;
+    vertical-align: top;
+    border: 1px solid var(--md-default-fg-color--lighter);
+    background-color: var(--md-code-bg-color);
+}
+
+/* First column (Rule type) gets medium dark background */
+.gnm-table td:first-child {
+    background-color: var(--md-code-bg-color);
+    text-align: center;
+    vertical-align: middle;
+    font-weight: normal; /* Remove bold */
+}
+
+/* Second column (Rule name) gets light background consistently */
+.gnm-table td:nth-child(2) {
+    background-color: var(--md-code-bg-color) !important;
+    text-align: center;
+    vertical-align: middle;
+}
+
+/* Force override for any conflicting styles in second column */
+.gnm-table tbody tr td:nth-child(2) {
+    background-color: var(--md-code-bg-color) !important;
+}
+
+/* Empty cells in first column (for rowspan) */
+.gnm-table td:first-child:empty {
+    background-color: var(--md-default-fg-color--lightest);
+}
+
+.gnm-table .notes-column {
+    max-width: 300px;
+    word-wrap: break-word;
+}
+
+.gnm-table .formula-column {
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .table-container {
+        margin: 1em 0;
+        border-radius: 8px;
+    }
+    
+    .table-banner {
+        padding: 0.2em 1em;
+        font-size: 1em;
+    }
+    
+    .gnm-table th, .gnm-table td {
+        padding: 8px 6px;
+        font-size: 0.9em;
+    }
+    
+    .gnm-table .notes-column {
+        max-width: 200px;
+    }
+}
+
+
+/* Enhanced Algorithm Box Styling */
+.algorithm-box {
+    border: 1px solid var(--md-primary-fg-color);
+    border-radius: 12px;
+    margin: 2em 0;
+    background-color: var(--md-code-bg-color);
+    overflow: hidden; /* Ensures banner stays within rounded corners */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    font-family: 'JetBrains Mono', 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', 'Droid Sans Mono', 'Source Code Pro', monospace;
+}
+
+.algorithm-box .algorithm-banner {
+    background-color: var(--md-primary-fg-color);
+    color: var(--md-primary-bg-color);
+    padding: 0.2em 1.5em;
+    margin: 0;
+    font-weight: bold;
+    font-size: 1.1em;
+    text-align: center;
+    letter-spacing: 0.5px;
+}
+
+.algorithm-box .algorithm-content {
+    padding:  0.2em 1.5em;
+    font-size: 0.95em;
+    line-height: 1.6;
+}
+
+.algorithm-box ol {
+    padding-left: 1.5em;
+    counter-reset: algorithm-counter;
+}
+
+.algorithm-box li {
+    margin-bottom: 0.8em;
+    position: relative;
+    counter-increment: algorithm-counter;
+}
+
+.algorithm-box li::marker {
+    font-weight: bold;
+    color: var(--md-primary-fg-color);
+}
+
+.algorithm-box p {
+    margin-bottom: 0.8em;
+}
+
+.algorithm-box strong {
+    color: var(--md-primary-fg-color);
+    font-weight: 600;
+}
+
+.algorithm-anchor {
+    position: relative;
+    scroll-margin-top: 2em;
+}
+
+.algorithm-anchor::before {
+    content: '';
+    position: absolute;
+    top: -2em;
+    height: 2em;
+    pointer-events: none;
+}
+
+.algorithm-box:target {
+    animation: highlight-algorithm 2s ease-in-out;
+}
+
+@keyframes highlight-algorithm {
+    0% { 
+        box-shadow: 0 0 0 3px var(--md-primary-fg-color);
+        transform: scale(1.02);
+    }
+    100% { 
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transform: scale(1);
+    }
+}
+
+@media (max-width: 768px) {
+    .algorithm-box {
+        margin: 1em 0;
+        border-radius: 8px;
+    }
+    
+    .algorithm-box .algorithm-banner {
+        padding: 0.6em 1em;
+        font-size: 1em;
+    }
+    
+    .algorithm-box .algorithm-content {
+        padding: 1em;
+        font-size: 0.9em;
+    }
+}

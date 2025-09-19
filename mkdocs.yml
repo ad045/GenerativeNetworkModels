@@ -1,0 +1,68 @@
+site_name: Generative Network Models Toolbox
+theme:
+  name: material 
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+
+extra_css:
+  - stylesheets/extra.css
+
+plugins:
+  - search
+  - autorefs
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]  
+          options:
+            show_source: true  
+            show_root_heading: true
+            heading_level: 2
+            docstring_style: google  
+            merge_init_into_class: true
+  - mkdocs-jupyter
+
+markdown_extensions:
+  - pymdownx.arithmatex:
+      generic: true
+
+extra_javascript:
+  - docs/javascripts/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+  
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - User Guide: 
+    - Overview: user-guide/index.md
+    - Design Philosophy: user-guide/design-philosophy.md
+  - Understanding Generative Network Models: 
+    - Overview: understanding-gnms/index.md
+    - Glossary: understanding-gnms/glossary.md
+    - Networks and Graphs: understanding-gnms/networks-and-graphs.md
+    - Binary Generative Network Models: understanding-gnms/binary-gnms.md
+    - Heterochronous Generative Network Models: understanding-gnms/heterochronous-gnms.md
+    - Weighted Generative Network Models: understanding-gnms/weighted-gnms.md
+    - Fitting Generative Network Models: understanding-gnms/fitting-gnms.md
+  - Example scripts:
+    - Overview: examples/index.md
+    - Parameter sweep: examples/sweep_example.ipynb 
+    - Weighted Sweep: examples/weighted_sweep.ipynb
+    - Weighted increments: examples/weighted_increments.ipynb
+    - Graphing model performance over time: examples/graph_model_performance.ipynb
+    - Wandb integration: examples/example_wandb_run.ipynb
+    - Saving Experiments: examples/experiment_saving_example.ipynb
+  - API Reference: 
+    - Overview: api-reference/index.md
+    - model: api-reference/model.md
+    - generative_rules: api-reference/generative-rules.md
+    - weight_criteria: api-reference/weight-criteria.md
+    - evaluation: api-reference/evaluation.md
+    - fitting: api-reference/fitting.md
+    - defaults: api-reference/defaults.md
+    - utils: api-reference/utils.md

@@ -1,0 +1,24 @@
+# Python cache files 
+__pycache__/
+*.py[cod]
+*$py.class
+
+# The code archive
+archive/
+
+# Various folders that should not be tracked
+site/
+wandb/
+build/
+*.egg-info/
+
+./workbook.ipynb
+./eval_gen_rules.py
+./GNM_original.py
+./.conda
+
+# Should not track experiment folder - may contain files due to testing
+generative_model_experiments/
+
+jq21330-university-of-cambridge/
+
