@@ -378,7 +378,7 @@ class DistanceWeightedCommunicability(OptimisationCriterion):
                 The power to which to raise each element of the distance weighted communicability before performing
                 the sum. Defaults to 1.0."""
         if len(distance_matrix.shape) == 2:
-            self.distance_matrix = distance_matrix.unsqueeze(0)
+            self.distance_matrix = torch.unsqueeze(distance_matrix, 0) 
         else:
             self.distance_matrix = distance_matrix
 
